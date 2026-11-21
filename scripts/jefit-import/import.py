@@ -64,12 +64,12 @@ CLEAN_NAMES = {
     'barbell ez bar reverse grip curl': 'EZ bar reverse curl',
     'barbell front raise': 'Front raise',
     'barbell glute bridge': 'Glute bridge',
-    'barbell lunge': 'Lunge',
+    'barbell lunge': 'Barbell lunge',
     'barbell preacher curl': 'Preacher curl',
     'barbell reverse curl': 'Reverse curl',
     'barbell romanian deadlift': 'Romanian deadlift',
     'barbell seated calf raise': 'Seated calf raise',
-    'barbell shrug': 'Shrug',
+    'barbell shrug': 'Barbell shrug',
     'barbell skull crusher': 'Skull crusher',
     'barbell spider curl': 'Spider curl',
     'barbell standing calf raise': 'Standing calf raise',
@@ -127,10 +127,10 @@ CLEAN_NAMES = {
     'dumbbell step-up': 'Dumbbell step-up',
     'dumbbell tricep extension': 'Dumbbell overhead triceps extension',
     'dumbbell tricep kickback': 'Dumbbell kickback',
-    'dumbbell walking lunges': 'Dumbbell walking lunge',
+    'dumbbell walking lunges': 'Dumbbell lunge',
     'ez bar close grip curl': 'EZ bar curl',
     'ez bar curl': 'EZ bar curl',
-    'ez bar tricep extension (close grip)': 'EZ bar triceps extension',
+    'ez bar tricep extension (close grip)': 'Skull crusher',
     'flat bench lying leg raise': 'Lying leg raise',
     'hanging knee raise': 'Hanging knee raise',
     'hanging knee raise rotation': 'Hanging knee raise',
@@ -309,7 +309,7 @@ CATEGORY_TITLES = {"complex": "Complexes", "free": "Free weights", "machine": "M
 def read_keep_list(path: Path) -> set[str]:
     names = set()
     for line in path.read_text().splitlines():
-        match = re.match(r"^\s*-\s+(.+?)(\s+\(\d+ entr(y|ies)\))?\s*$", line)
+        match = re.match(r"^\s*-\s+(.+?)(\s+\(\d+ entr(y|ies)\))?(\s*-->.*)?\s*$", line)
         if match:
             names.add(match.group(1).strip().lower())
     return names
@@ -549,11 +549,11 @@ def main() -> None:
 
     args.out.mkdir(parents=True, exist_ok=True)
     mappings = build(args.export)
+    if args.keep:
+        apply_keep_list(mappings, read_keep_list(args.keep))
     if args.list:
         write_exercise_list(mappings, args.out / "exercises.md")
         print(f"Exercise list: {args.out / 'exercises.md'}")
-    if args.keep:
-        apply_keep_list(mappings, read_keep_list(args.keep))
     write_report(mappings, args.out / "jefit-import-review.md")
     print(f"Report: {args.out / 'jefit-import-review.md'}")
     if args.sql:
