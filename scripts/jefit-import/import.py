@@ -48,7 +48,18 @@ MOVEMENT_NAMES = {
     "Barbell Row": "Barbell row",
     "Barbell Tricep Extension (Supine)": "Barbell skull crusher",
     "Barbell Lying Triceps Extension": "Barbell skull crusher",
+    "Barbell Triceps Extension": "Barbell skull crusher",
+    "Barbell Tricep Extension": "Barbell skull crusher",
 }
+
+REMOVED = {
+    "Leg Press", "Lying Leg Curls", "Wide Grip Lat Pulldown", "Cable Seated Row", "Leg Extensions", "Leg Extension",
+}
+
+MACHINE_PATTERN = re.compile(
+    r"machine|cable|smith|leg press|leg extension|leg curl|pull ?down|push ?down|hack squat|adductor|abductor|adduction|^(?!barbell).*calf raise|hyperextension",
+    re.IGNORECASE,
+)
 
 BODYWEIGHT_PATTERN = re.compile(r"push.?up|pushup|crunch|\bdips?\b|leg raise|knee raise|plank|leg tuck|bodyweight", re.IGNORECASE)
 DUMBBELL_CURL_PATTERN = re.compile(r"^dumbbell\b.*\bcurls?\b", re.IGNORECASE)
@@ -71,6 +82,10 @@ class ExerciseMapping:
     name: str
     movements: list[str]
     jefit_names: set[str] = field(default_factory=set)
+
+    @property
+    def is_machine(self) -> bool:
+        return any(MACHINE_PATTERN.search(name) for name in self.jefit_names | {self.name})
     entries: list[ImportedEntry] = field(default_factory=list)
     technique: list[tuple[ImportedEntry, float]] = field(default_factory=list)
     dropped: int = 0
@@ -82,6 +97,8 @@ def sentence_case(name: str) -> str:
 
 
 def map_exercise(jefit_name: str) -> tuple[str, list[str]] | None:
+    if jefit_name in REMOVED:
+        return None
     if BODYWEIGHT_PATTERN.search(jefit_name) and "machine" not in jefit_name.lower():
         return None
     if jefit_name in COMPLEXES:
@@ -266,7 +283,8 @@ def write_report(mappings: dict[str, ExerciseMapping], output: Path) -> None:
         f"- Technique work is dropped: a session whose top weight is below {TECHNIQUE_RATIO:.0%} of the best already reached on that exercise.",
         "- Bodyweight sets (0 kg), bodyweight exercises and cardio logs are dropped (list at the end).",
         "- All dumbbell curl variants are merged into \"Dumbbell bicep curl\".",
-        "- Several JEFIT names are merged into one exercise (see the mapping table).",
+        "- Several JEFIT names are merged into one exercise (see the mapping tables).",
+        "- Exercises you asked to remove are excluded (listed at the end with the bodyweight ones).",
         "- The same exercise logged several times on one day is merged into one session before applying the rules.",
         "",
         "## Totals",
@@ -275,13 +293,17 @@ def write_report(mappings: dict[str, ExerciseMapping], output: Path) -> None:
         f"- Exercises created: **{len(kept)}** (out of {len(mappings)} JEFIT exercises after merging).",
         "- Session types: " + ", ".join(f"{name} ({count})" for name, count in sorted(scheme_counts.items(), key=lambda item: (item[0][-2:] != "RM", item[0]))) + ".",
         "",
-        "## Exercise mapping (only exercises with something kept)",
+        "## Exercise mapping: free weights (only exercises with something kept)",
         "",
-        "| New exercise | Movements | From JEFIT | Entries | Sessions dropped |",
-        "|---|---|---|---|---|",
     ]
-    for m in kept:
-        lines.append(f"| {m.name} | {' + '.join(m.movements)} | {', '.join(sorted(m.jefit_names))} | {len(m.entries)} | {m.dropped + len(m.technique)} |")
+    mapping_header = ["| New exercise | Movements | From JEFIT | Entries | Sessions dropped |", "|---|---|---|---|---|"]
+
+    def mapping_row(m: ExerciseMapping) -> str:
+        return f"| {m.name} | {' + '.join(m.movements)} | {', '.join(sorted(m.jefit_names))} | {len(m.entries)} | {m.dropped + len(m.technique)} |"
+
+    lines += mapping_header + [mapping_row(m) for m in kept if not m.is_machine]
+    lines += ["", "## Exercise mapping: machines and cables (to review)", ""]
+    lines += mapping_header + [mapping_row(m) for m in kept if m.is_machine]
 
     all_schemes = sorted(set(APP_SCHEMES) | set(scheme_counts), key=scheme_order)
     lines += [
