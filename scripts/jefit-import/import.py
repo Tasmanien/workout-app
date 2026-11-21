@@ -8,6 +8,7 @@ from pathlib import Path
 from jefit import read_sections
 
 MAX_RECORD_REPS = 5
+CAPPED_REPS = 6
 MIN_FIXED_SETS = 3
 TECHNIQUE_RATIO = 0.6
 APP_SCHEMES = ["1RM", "2RM", "3RM", "5RM", "5x5", "3x3"]
@@ -25,7 +26,7 @@ MOVEMENT_NAMES = {
     "Barbell Military Press": "Strict press",
     "Barbell Shoulder Press": "Strict press",
     "Barbell Standing Military Press": "Strict press",
-    "Barbell Power Clean from Blocks": "Block power clean",
+    "Barbell Power Clean from Blocks": "Power clean",
     "Barbell Front Squat": "Front squat",
     "Barbell Snatch": "Snatch",
     "Barbell Push Press": "Push press",
@@ -40,9 +41,12 @@ MOVEMENT_NAMES = {
     "Weighted Pull-Up": "Weighted pull-up",
     "Pull-Up": "Weighted pull-up",
     "Pull Ups": "Weighted pull-up",
-    "Barbell Tricep Extension (Supine)": "Barbell lying triceps extension",
-    "Barbell Lying Triceps Extension": "Barbell lying triceps extension",
+    "Barbell Tricep Extension (Supine)": "Barbell skull crusher",
+    "Barbell Lying Triceps Extension": "Barbell skull crusher",
 }
+
+BODYWEIGHT_PATTERN = re.compile(r"push.?up|pushup|crunch|\bdips?\b|leg raise|knee raise|plank|leg tuck|bodyweight", re.IGNORECASE)
+DUMBBELL_CURL_PATTERN = re.compile(r"^dumbbell\b.*\bcurls?\b", re.IGNORECASE)
 
 
 @dataclass
@@ -71,9 +75,13 @@ def sentence_case(name: str) -> str:
     return name[:1].upper() + name[1:].lower()
 
 
-def map_exercise(jefit_name: str) -> tuple[str, list[str]]:
+def map_exercise(jefit_name: str) -> tuple[str, list[str]] | None:
+    if BODYWEIGHT_PATTERN.search(jefit_name) and "machine" not in jefit_name.lower():
+        return None
     if jefit_name in COMPLEXES:
         return COMPLEXES[jefit_name]
+    if DUMBBELL_CURL_PATTERN.search(jefit_name):
+        return "Dumbbell bicep curl", ["Dumbbell bicep curl"]
     movement = MOVEMENT_NAMES.get(jefit_name, sentence_case(jefit_name))
     return movement, [movement]
 
@@ -99,8 +107,8 @@ def classify(sets: list[tuple[float, int]]) -> tuple[str, list[tuple[float, int]
     if len(top_sets) >= MIN_FIXED_SETS and len(top_reps) == 1 and 2 <= max(top_reps) <= MAX_RECORD_REPS:
         return f"{len(top_sets)}x{max(top_reps)}", top_sets
     best_reps = max(top_reps)
-    if best_reps <= MAX_RECORD_REPS:
-        return f"{best_reps}RM", [(top_weight, best_reps)]
+    if best_reps <= CAPPED_REPS:
+        return f"{min(best_reps, MAX_RECORD_REPS)}RM", [(top_weight, best_reps)]
     return None
 
 
@@ -136,25 +144,41 @@ def drop_technique_work(mapping: ExerciseMapping) -> None:
     mapping.entries = kept
 
 
+excluded: set[str] = set()
+
+
 def build(path: Path) -> dict[str, ExerciseMapping]:
     sections = read_sections(path)
     notes = {(n["eid"], n["mydate"]): n["mynote"].strip() for n in sections["NOTES"] if n["mynote"].strip()}
     mappings: dict[str, ExerciseMapping] = {}
+    sessions: dict[tuple[str, str], list[dict]] = {}
+    canonical_by_slug: dict[str, str] = {}
     for log in sections["EXERCISE LOGS"]:
         jefit_name = log["ename"].strip()
-        if log["eid"] in CARDIO_EXERCISE_IDS or not jefit_name:
+        mapped = map_exercise(jefit_name) if jefit_name and log["eid"] not in CARDIO_EXERCISE_IDS else None
+        if mapped is None:
+            excluded.add(jefit_name or "(unnamed cardio)")
             continue
-        name, movements = map_exercise(jefit_name)
+        name, movements = mapped
+        name = canonical_by_slug.setdefault(slug(name), name)
+        movements = [canonical_by_slug.setdefault(slug(movement), movement) for movement in movements]
         mapping = mappings.setdefault(name, ExerciseMapping(name, movements))
         mapping.jefit_names.add(jefit_name)
-        result = classify(parse_sets(log["logs"]))
+        sessions.setdefault((name, log["mydate"]), []).append(log)
+
+    for (name, date), logs in sessions.items():
+        mapping = mappings[name]
+        logs.sort(key=lambda log: int(log["_id"]))
+        result = classify([s for log in logs for s in parse_sets(log["logs"])])
         if result is None:
             mapping.dropped += 1
             continue
         scheme, sets = result
+        session_notes = [notes[(log["eid"], date)] for log in logs if (log["eid"], date) in notes]
         mapping.entries.append(ImportedEntry(
-            jefit_id=log["_id"], date=log["mydate"], jefit_name=jefit_name, scheme=scheme, sets=sets,
-            original=log["logs"], notes=notes.get((log["eid"], log["mydate"])),
+            jefit_id=logs[0]["_id"], date=date, jefit_name=", ".join(sorted({log["ename"].strip() for log in logs})),
+            scheme=scheme, sets=sets, original=" + ".join(log["logs"] for log in logs),
+            notes=" / ".join(dict.fromkeys(session_notes)) or None,
         ))
     for mapping in mappings.values():
         drop_technique_work(mapping)
@@ -201,14 +225,17 @@ def write_report(mappings: dict[str, ExerciseMapping], output: Path) -> None:
         f"- Per session, only the **top weight** is looked at. Sets with more than {MAX_RECORD_REPS} reps are never a record.",
         f"  - {MIN_FIXED_SETS}+ sets at the top weight with the same reps (2–{MAX_RECORD_REPS}) → a sets × reps entry (e.g. 5x5 @ 80).",
         f"  - Otherwise, the top set if it has ≤ {MAX_RECORD_REPS} reps → an nRM entry with that rep count (e.g. 60 × 2 → 2RM 60).",
-        f"  - Otherwise (top set above {MAX_RECORD_REPS} reps) → dropped.",
+        f"  - A top set of {CAPPED_REPS} reps counts as a {MAX_RECORD_REPS}RM (the set is stored with its real {CAPPED_REPS} reps).",
+        f"  - Otherwise (top set above {CAPPED_REPS} reps) → dropped.",
         f"- Technique work is dropped: a session whose top weight is below {TECHNIQUE_RATIO:.0%} of the best already reached on that exercise.",
-        "- Bodyweight sets (0 kg) and cardio logs are dropped.",
+        "- Bodyweight sets (0 kg), bodyweight exercises and cardio logs are dropped (list at the end).",
+        "- All dumbbell curl variants are merged into \"Dumbbell bicep curl\".",
         "- Several JEFIT names are merged into one exercise (see the mapping table).",
+        "- The same exercise logged several times on one day is merged into one session before applying the rules.",
         "",
         "## Totals",
         "",
-        f"- JEFIT sessions kept: **{total_kept}**, dropped: {total_dropped}.",
+        f"- Sessions kept: **{total_kept}**, dropped: {total_dropped}.",
         f"- Exercises created: **{len(kept)}** (out of {len(mappings)} JEFIT exercises after merging).",
         "- Session types: " + ", ".join(f"{name} ({count})" for name, count in sorted(scheme_counts.items(), key=lambda item: (item[0][-2:] != "RM", item[0]))) + ".",
         "",
@@ -250,6 +277,7 @@ def write_report(mappings: dict[str, ExerciseMapping], output: Path) -> None:
     for m, entry, best in sorted(technique, key=lambda item: (item[0].name, item[1].date)):
         lines.append(f"| {m.name} | {entry.date} | {entry.scheme} {format_sets(entry.sets)} | {best:g} kg |")
 
+    lines += ["", f"## Excluded JEFIT exercises ({len(excluded)})", "", ", ".join(sorted(excluded)), ""]
     lines += ["", "## Every session kept", ""]
     for m in kept:
         lines += [f"### {m.name}", "", "| Date | Session type | Kept | Full JEFIT log | Note |", "|---|---|---|---|---|"]
