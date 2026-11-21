@@ -152,6 +152,11 @@ CLEAN_NAMES = {
 }
 
 
+MANUAL_ENTRIES = [
+    ("Clean + Jerk", "2026-10-29", "1RM", [(70.0, 1)], "Best clean & jerk"),
+    ("Clean + Jerk", "2026-11-20", "1RM", [(70.0, 1)], "Confirmed best clean & jerk"),
+]
+
 REMOVED = {
     "Leg Press", "Lying Leg Curls", "Wide Grip Lat Pulldown", "Cable Seated Row", "Leg Extensions", "Leg Extension",
 }
@@ -175,6 +180,7 @@ class ImportedEntry:
     original: str
     top_weight: float
     notes: str | None = None
+    source: str = "jefit"
 
 
 @dataclass
@@ -245,10 +251,7 @@ def classify(sets: list[tuple[float, int]]) -> list[tuple[str, list[tuple[float,
         reps = max((r for r in FIXED_REP_TARGETS if r <= min(r for _, r in chosen)), default=None)
         if reps:
             candidates.append((count, reps, chosen[-1][0], chosen))
-    fixed = [
-        c for c in candidates
-        if not any(o is not c and o[0] >= c[0] and o[1] >= c[1] and o[2] >= c[2] for o in candidates)
-    ]
+    fixed = [max(candidates, key=lambda c: (c[2], c[0], c[1]))] if candidates else []
 
     results = [(f"{count}x{reps}", sorted(chosen, key=lambda s: in_session_order[id(s)])) for count, reps, _, chosen in fixed]
     best_reps = min(MAX_RECORD_REPS, max(r for w, r in ordered if w == top_weight))
@@ -398,6 +401,12 @@ def build(path: Path) -> dict[str, ExerciseMapping]:
             ))
     for mapping in mappings.values():
         drop_technique_work(mapping)
+    for exercise_name, date, scheme, sets, note in MANUAL_ENTRIES:
+        mapping = mappings[exercise_name]
+        mapping.entries.append(ImportedEntry(
+            jefit_id=f"{slug(exercise_name)}-{date}-{scheme.lower()}", date=date, jefit_name="(given by hand)", scheme=scheme,
+            sets=sets, original="(given by hand)", top_weight=max(w for w, _ in sets), notes=note, source="manual",
+        ))
     return mappings
 
 
@@ -445,8 +454,9 @@ def write_report(mappings: dict[str, ExerciseMapping], output: Path) -> None:
         f"  - **nRM:** the heaviest set → nRM with its reps (capped at {MAX_RECORD_REPS}). 60 × 2 → 2RM 60; 80 × 8 → 5RM 80.",
         f"  - **Sets × reps:** N = {MIN_FIXED_SETS} to {MAX_FIXED_SETS} sets at ≥ W kg, each with ≥ R reps → NxR at W, R being 5 or 3 (rounded down). 5 × 12 at 50 kg → 5x5 at 50; 3 × 4 → 3x3.",
         f"    Only working sets count (≥ {WORKING_SET_RATIO:.0%} of that session's top weight), so warm-ups never make a 5x5.",
-        "  - A session can give several entries; one already covered by a better entry of the same session is skipped",
-        "    (a 5x5 at 90 makes a 3x5 at 90 or a 5RM at 90 redundant).",
+        "  - Pyramid days keep only the heaviest sets × reps result, plus the top set as nRM unless that result already covers it",
+        "    (a 5x5 at 90 makes a 5RM at 90 redundant).",
+        "- Complexes are never derived from their movements: only full complexes count. Entries marked \"(given by hand)\" come from you.",
         f"- Technique work is dropped: a session whose top weight is below {TECHNIQUE_RATIO:.0%} of the best already reached on that exercise.",
         "- Bodyweight sets (0 kg) and cardio logs are dropped.",
         "- All dumbbell curl variants are merged into \"Dumbbell bicep curl\".",
@@ -549,10 +559,10 @@ def write_sql(mappings: dict[str, ExerciseMapping], output: Path) -> None:
                 f"SELECT {sql_text(exercise_id)}, {position}, id, 1 FROM movement WHERE name = {sql_text(movement)} ON CONFLICT DO NOTHING;"
             )
         for entry in m.entries:
-            entry_id = f"jefit-{entry.jefit_id}"
+            entry_id = f"{entry.source}-{entry.jefit_id}"
             statements.append(
                 f"INSERT INTO log_entry (id, exercise_id, scheme_id, date, notes, source) "
-                f"SELECT {sql_text(entry_id)}, {sql_text(exercise_id)}, id, {sql_text(entry.date)}, {sql_text(entry.notes)}, 'jefit' "
+                f"SELECT {sql_text(entry_id)}, {sql_text(exercise_id)}, id, {sql_text(entry.date)}, {sql_text(entry.notes)}, {sql_text('app' if entry.source == 'manual' else 'jefit')} "
                 f"FROM scheme WHERE name = {sql_text(entry.scheme)} ON CONFLICT DO NOTHING;"
             )
             for position, (weight, reps) in enumerate(entry.sets):
