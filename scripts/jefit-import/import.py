@@ -8,8 +8,10 @@ from pathlib import Path
 from jefit import read_sections
 
 MAX_RECORD_REPS = 5
-CAPPED_REPS = 6
 MIN_FIXED_SETS = 3
+MAX_FIXED_SETS = 5
+WORKING_SET_RATIO = 0.8
+FIXED_REP_TARGETS = (3, 5)
 TECHNIQUE_RATIO = 0.6
 APP_SCHEMES = ["1RM", "2RM", "3RM", "5RM", "5x5", "3x3"]
 CARDIO_EXERCISE_IDS = {"317"}
@@ -57,6 +59,7 @@ class ImportedEntry:
     scheme: str
     sets: list[tuple[float, int]]
     original: str
+    top_weight: float
     notes: str | None = None
 
 
@@ -98,18 +101,32 @@ def parse_sets(logs: str) -> list[tuple[float, int]]:
     return sets
 
 
-def classify(sets: list[tuple[float, int]]) -> tuple[str, list[tuple[float, int]]] | None:
+def classify(sets: list[tuple[float, int]]) -> list[tuple[str, list[tuple[float, int]]]]:
     if not sets:
-        return None
-    top_weight = max(weight for weight, _ in sets)
-    top_sets = [s for s in sets if s[0] == top_weight]
-    top_reps = {reps for _, reps in top_sets}
-    if len(top_sets) >= MIN_FIXED_SETS and len(top_reps) == 1 and 2 <= max(top_reps) <= MAX_RECORD_REPS:
-        return f"{len(top_sets)}x{max(top_reps)}", top_sets
-    best_reps = max(top_reps)
-    if best_reps <= CAPPED_REPS:
-        return f"{min(best_reps, MAX_RECORD_REPS)}RM", [(top_weight, best_reps)]
-    return None
+        return []
+    in_session_order = {id(s): index for index, s in enumerate(sets)}
+    ordered = sorted(sets, key=lambda s: (-s[0], -s[1]))
+    top_weight = ordered[0][0]
+    working = [s for s in ordered if s[0] >= WORKING_SET_RATIO * top_weight]
+
+    candidates: list[tuple[int, int, float, list[tuple[float, int]]]] = []
+    for count in range(MIN_FIXED_SETS, min(MAX_FIXED_SETS, len(working)) + 1):
+        chosen = working[:count]
+        reps = max((r for r in FIXED_REP_TARGETS if r <= min(r for _, r in chosen)), default=None)
+        if reps:
+            candidates.append((count, reps, chosen[-1][0], chosen))
+    fixed = [
+        c for c in candidates
+        if not any(o is not c and o[0] >= c[0] and o[1] >= c[1] and o[2] >= c[2] for o in candidates)
+    ]
+
+    results = [(f"{count}x{reps}", sorted(chosen, key=lambda s: in_session_order[id(s)])) for count, reps, _, chosen in fixed]
+    best_reps = min(MAX_RECORD_REPS, max(r for w, r in ordered if w == top_weight))
+    top_set = max((s for s in ordered if s[0] == top_weight), key=lambda s: s[1])
+    covered = any(weight >= top_weight and reps >= best_reps for _, reps, weight, _ in fixed)
+    if not covered:
+        results.insert(0, (f"{best_reps}RM", [top_set]))
+    return results
 
 
 def scheme_shape(scheme: str) -> tuple[str, int, int]:
@@ -133,14 +150,18 @@ def scheme_order(scheme: str) -> tuple[int, int, int]:
 
 
 def drop_technique_work(mapping: ExerciseMapping) -> None:
-    kept, best_so_far = [], 0.0
-    for entry in sorted(mapping.entries, key=lambda e: e.date):
-        weight = entry.sets[0][0]
-        if best_so_far and weight < TECHNIQUE_RATIO * best_so_far:
-            mapping.technique.append((entry, best_so_far))
+    kept, best_before = [], 0.0
+    by_date: dict[str, list[ImportedEntry]] = {}
+    for entry in mapping.entries:
+        by_date.setdefault(entry.date, []).append(entry)
+    for date in sorted(by_date):
+        session = by_date[date]
+        top_weight = session[0].top_weight
+        if best_before and top_weight < TECHNIQUE_RATIO * best_before:
+            mapping.technique.extend((entry, best_before) for entry in session)
             continue
-        kept.append(entry)
-        best_so_far = max(best_so_far, weight)
+        kept.extend(session)
+        best_before = max(best_before, top_weight)
     mapping.entries = kept
 
 
@@ -169,17 +190,20 @@ def build(path: Path) -> dict[str, ExerciseMapping]:
     for (name, date), logs in sessions.items():
         mapping = mappings[name]
         logs.sort(key=lambda log: int(log["_id"]))
-        result = classify([s for log in logs for s in parse_sets(log["logs"])])
-        if result is None:
+        session_sets = [s for log in logs for s in parse_sets(log["logs"])]
+        results = classify(session_sets)
+        if not results:
             mapping.dropped += 1
             continue
-        scheme, sets = result
         session_notes = [notes[(log["eid"], date)] for log in logs if (log["eid"], date) in notes]
-        mapping.entries.append(ImportedEntry(
-            jefit_id=logs[0]["_id"], date=date, jefit_name=", ".join(sorted({log["ename"].strip() for log in logs})),
-            scheme=scheme, sets=sets, original=" + ".join(log["logs"] for log in logs),
-            notes=" / ".join(dict.fromkeys(session_notes)) or None,
-        ))
+        for scheme, sets in results:
+            mapping.entries.append(ImportedEntry(
+                jefit_id=f"{logs[0]['_id']}-{scheme.lower()}", date=date,
+                jefit_name=", ".join(sorted({log["ename"].strip() for log in logs})),
+                scheme=scheme, sets=sets, original=" + ".join(log["logs"] for log in logs),
+                top_weight=max(w for w, _ in session_sets),
+                notes=" / ".join(dict.fromkeys(session_notes)) or None,
+            ))
     for mapping in mappings.values():
         drop_technique_work(mapping)
     return mappings
@@ -201,9 +225,7 @@ def compute_records(entries: list[ImportedEntry], schemes: list[str]) -> list[tu
 
 
 def format_sets(sets: list[tuple[float, int]]) -> str:
-    weight, reps = sets[0]
-    weight_text = f"{weight:g}"
-    return f"{len(sets)} × {reps} @ {weight_text} kg" if len(sets) > 1 else f"{reps} @ {weight_text} kg"
+    return ", ".join(f"{weight:g}×{reps}" for weight, reps in sets)
 
 
 def write_report(mappings: dict[str, ExerciseMapping], output: Path) -> None:
@@ -222,11 +244,13 @@ def write_report(mappings: dict[str, ExerciseMapping], output: Path) -> None:
         "",
         "- Source: each JEFIT exercise log (`EXERCISE LOGS`), with its own JEFIT date. Weights are in kg in the export.",
         "- JEFIT's estimated 1RMs (`EXERCISE RECORDS`) are ignored.",
-        f"- Per session, only the **top weight** is looked at. Sets with more than {MAX_RECORD_REPS} reps are never a record.",
-        f"  - {MIN_FIXED_SETS}+ sets at the top weight with the same reps (2–{MAX_RECORD_REPS}) → a sets × reps entry (e.g. 5x5 @ 80).",
-        f"  - Otherwise, the top set if it has ≤ {MAX_RECORD_REPS} reps → an nRM entry with that rep count (e.g. 60 × 2 → 2RM 60).",
-        f"  - A top set of {CAPPED_REPS} reps counts as a {MAX_RECORD_REPS}RM (the set is stored with its real {CAPPED_REPS} reps).",
-        f"  - Otherwise (top set above {CAPPED_REPS} reps) → dropped.",
+        f"- Reps above {MAX_RECORD_REPS} count as {MAX_RECORD_REPS} (sets are stored with their real reps). Nothing goes above 5RM.",
+        "- Per session (one exercise, one day):",
+        f"  - **nRM:** the heaviest set → nRM with its reps (capped at {MAX_RECORD_REPS}). 60 × 2 → 2RM 60; 80 × 8 → 5RM 80.",
+        f"  - **Sets × reps:** N = {MIN_FIXED_SETS} to {MAX_FIXED_SETS} sets at ≥ W kg, each with ≥ R reps → NxR at W, R being 5 or 3 (rounded down). 5 × 12 at 50 kg → 5x5 at 50; 3 × 4 → 3x3.",
+        f"    Only working sets count (≥ {WORKING_SET_RATIO:.0%} of that session's top weight), so warm-ups never make a 5x5.",
+        "  - A session can give several entries; one already covered by a better entry of the same session is skipped",
+        "    (a 5x5 at 90 makes a 3x5 at 90 or a 5RM at 90 redundant).",
         f"- Technique work is dropped: a session whose top weight is below {TECHNIQUE_RATIO:.0%} of the best already reached on that exercise.",
         "- Bodyweight sets (0 kg), bodyweight exercises and cardio logs are dropped (list at the end).",
         "- All dumbbell curl variants are merged into \"Dumbbell bicep curl\".",
@@ -235,13 +259,13 @@ def write_report(mappings: dict[str, ExerciseMapping], output: Path) -> None:
         "",
         "## Totals",
         "",
-        f"- Sessions kept: **{total_kept}**, dropped: {total_dropped}.",
+        f"- Entries created: **{total_kept}** from {len({(m.name, e.date) for m in kept for e in m.entries})} JEFIT sessions; sessions dropped: {total_dropped}.",
         f"- Exercises created: **{len(kept)}** (out of {len(mappings)} JEFIT exercises after merging).",
         "- Session types: " + ", ".join(f"{name} ({count})" for name, count in sorted(scheme_counts.items(), key=lambda item: (item[0][-2:] != "RM", item[0]))) + ".",
         "",
         "## Exercise mapping (only exercises with something kept)",
         "",
-        "| New exercise | Movements | From JEFIT | Kept | Dropped |",
+        "| New exercise | Movements | From JEFIT | Entries | Sessions dropped |",
         "|---|---|---|---|---|",
     ]
     for m in kept:
@@ -280,7 +304,7 @@ def write_report(mappings: dict[str, ExerciseMapping], output: Path) -> None:
     lines += ["", f"## Excluded JEFIT exercises ({len(excluded)})", "", ", ".join(sorted(excluded)), ""]
     lines += ["", "## Every session kept", ""]
     for m in kept:
-        lines += [f"### {m.name}", "", "| Date | Session type | Kept | Full JEFIT log | Note |", "|---|---|---|---|---|"]
+        lines += [f"### {m.name}", "", "| Date | Session type | Sets stored | Full JEFIT log | Note |", "|---|---|---|---|---|"]
         for entry in sorted(m.entries, key=lambda e: e.date):
             note = (entry.notes or "").replace("|", "/")
             lines.append(f"| {entry.date} | {entry.scheme} | {format_sets(entry.sets)} | `{entry.original}` | {note} |")
