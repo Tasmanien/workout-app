@@ -5,3 +5,4 @@ dist/
 *.csv
 scripts/jefit-import/out/
 .DS_Store
+__pycache__/
