@@ -30,7 +30,7 @@ MOVEMENT_NAMES = {
     "Barbell Standing Military Press": "Strict press",
     "Barbell Power Clean from Blocks": "Power clean",
     "Barbell Front Squat": "Front squat",
-    "Barbell Snatch": "Snatch",
+    "Barbell Snatch": "Power snatch",
     "Barbell Push Press": "Push press",
     "Barbell Hang Clean": "Hang clean",
     "Barbell Clean": "Clean",
@@ -156,6 +156,10 @@ MANUAL_ENTRIES = [
     ("Clean + Jerk", "2026-10-29", "1RM", [(70.0, 1)], "Best clean & jerk"),
     ("Clean + Jerk", "2026-11-20", "1RM", [(70.0, 1)], "Confirmed best clean & jerk"),
 ]
+
+SESSION_EXERCISE_OVERRIDES = {
+    ("Barbell Power Clean from Blocks", "2026-11-20"): "Barbell Clean",
+}
 
 SKIPPED_SESSIONS = {
     ("Barbell Split Jerk", "2026-11-20"),
@@ -375,7 +379,8 @@ def build(path: Path) -> dict[str, ExerciseMapping]:
     canonical_by_slug: dict[str, str] = {}
     for log in sections["EXERCISE LOGS"]:
         jefit_name = log["ename"].strip()
-        mapped = map_exercise(jefit_name) if jefit_name and log["eid"] not in CARDIO_EXERCISE_IDS else None
+        mapped_name = SESSION_EXERCISE_OVERRIDES.get((jefit_name, log["mydate"]), jefit_name)
+        mapped = map_exercise(mapped_name) if jefit_name and log["eid"] not in CARDIO_EXERCISE_IDS else None
         if mapped is None:
             excluded.add(jefit_name or "(unnamed cardio)")
             continue
