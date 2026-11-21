@@ -43,6 +43,9 @@ MOVEMENT_NAMES = {
     "Weighted Pull-Up": "Weighted pull-up",
     "Pull-Up": "Weighted pull-up",
     "Pull Ups": "Weighted pull-up",
+    "Barbell Bent Over Row": "Barbell row",
+    "Barbell Bent-Over Row": "Barbell row",
+    "Barbell Row": "Barbell row",
     "Barbell Tricep Extension (Supine)": "Barbell skull crusher",
     "Barbell Lying Triceps Extension": "Barbell skull crusher",
 }
