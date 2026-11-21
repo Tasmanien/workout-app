@@ -52,6 +52,106 @@ MOVEMENT_NAMES = {
     "Barbell Tricep Extension": "Barbell skull crusher",
 }
 
+CLEAN_NAMES = {
+    'dumbbell step-ups': 'Dumbbell step-up',
+    'dumbbell one-arm row': 'One-arm dumbbell row',
+    'back extension machine': 'Back extension',
+    'barbell ab rollout': 'Ab rollout',
+    'barbell ab rollout (kneeling)': 'Ab rollout',
+    'barbell bench press (close grip)': 'Close-grip bench press',
+    'barbell close grip bench press': 'Close-grip bench press',
+    'barbell decline bench press': 'Decline bench press',
+    'barbell ez bar reverse grip curl': 'EZ bar reverse curl',
+    'barbell front raise': 'Front raise',
+    'barbell glute bridge': 'Glute bridge',
+    'barbell lunge': 'Lunge',
+    'barbell preacher curl': 'Preacher curl',
+    'barbell reverse curl': 'Reverse curl',
+    'barbell romanian deadlift': 'Romanian deadlift',
+    'barbell seated calf raise': 'Seated calf raise',
+    'barbell shrug': 'Shrug',
+    'barbell skull crusher': 'Skull crusher',
+    'barbell spider curl': 'Spider curl',
+    'barbell standing calf raise': 'Standing calf raise',
+    'barbell stiff-leg deadlift': 'Stiff-leg deadlift',
+    'barbell stiff-legged deadlift': 'Stiff-leg deadlift',
+    'barbell up right row': 'Upright row',
+    'barbell upright row': 'Upright row',
+    'bench leg raise (supine)': 'Lying leg raise',
+    'bench press machine': 'Machine chest press',
+    'cable close grip curl': 'Cable curl',
+    'cable incline pullover': 'Cable pullover',
+    'cable lat pulldown (wide grip)': 'Lat pulldown',
+    'cable lower chest raise': 'Low cable fly',
+    'cable mid chest crossovers': 'Cable crossover',
+    'cable one arm tricep extension': 'One-arm cable pushdown',
+    'cable one-arm tricep pushdown': 'One-arm cable pushdown',
+    'cable reverse curl': 'Cable reverse curl',
+    'cable rope face pull': 'Face pull',
+    'cable rope hammer curl': 'Cable hammer curl',
+    'cable rope hammer curls': 'Cable hammer curl',
+    'cable rope overhead triceps extension': 'Cable overhead triceps extension',
+    'cable rope seated row': 'Seated cable row',
+    'cable rope tricep pushdown': 'Rope pushdown',
+    'cable rope triceps pushdown': 'Rope pushdown',
+    'cable seated curl': 'Cable curl',
+    'cable standing biceps curl': 'Cable curl',
+    'cable standing leg curl': 'Standing cable leg curl',
+    'cable tricep pushdown (rope)': 'Rope pushdown',
+    'cable tricep pushdown (v-bar)': 'V-bar pushdown',
+    'cable triceps pushdown': 'Triceps pushdown',
+    'cable underhand pull down': 'Underhand lat pulldown',
+    'cable v bar pull down': 'Close-grip lat pulldown',
+    'close grip front lat pulldown': 'Close-grip lat pulldown',
+    'close triceps pushup': 'Diamond push-up',
+    'dip machine': 'Machine dip',
+    'dumbbell arnold press': 'Arnold press',
+    'dumbbell bent over delt raise': 'Dumbbell reverse fly',
+    'dumbbell lunge': 'Dumbbell lunge',
+    'dumbbell lunges': 'Dumbbell lunge',
+    'dumbbell lying triceps extension': 'Dumbbell skull crusher',
+    'dumbbell one arm row': 'One-arm dumbbell row',
+    'dumbbell one arm standing arnold press': 'One-arm Arnold press',
+    'dumbbell one arm up right row': 'One-arm dumbbell upright row',
+    'dumbbell reverse fly': 'Dumbbell reverse fly',
+    'dumbbell reverse flyes': 'Dumbbell reverse fly',
+    'dumbbell seated arnold press': 'Arnold press',
+    'dumbbell seated bent-over reverse fly': 'Dumbbell reverse fly',
+    'dumbbell seated shoulder press': 'Dumbbell shoulder press',
+    'dumbbell shoulder press': 'Dumbbell shoulder press',
+    'dumbbell shoulder shrug': 'Dumbbell shrug',
+    'dumbbell standing one arm triceps extension': 'Dumbbell overhead triceps extension',
+    'dumbbell standing triceps extension': 'Dumbbell overhead triceps extension',
+    'dumbbell standing triceps kickback': 'Dumbbell kickback',
+    'dumbbell step ups': 'Dumbbell step-up',
+    'dumbbell step-up': 'Dumbbell step-up',
+    'dumbbell tricep extension': 'Dumbbell overhead triceps extension',
+    'dumbbell tricep kickback': 'Dumbbell kickback',
+    'dumbbell walking lunges': 'Dumbbell walking lunge',
+    'ez bar close grip curl': 'EZ bar curl',
+    'ez bar curl': 'EZ bar curl',
+    'ez bar tricep extension (close grip)': 'EZ bar triceps extension',
+    'flat bench lying leg raise': 'Lying leg raise',
+    'hanging knee raise': 'Hanging knee raise',
+    'hanging knee raise rotation': 'Hanging knee raise',
+    'hip adduction': 'Hip adduction',
+    'hyperextensions - back extensions': 'Back extension',
+    'landmine chest press': 'Landmine press',
+    'machine calf raise': 'Machine calf raise',
+    'machine incline chest press': 'Machine incline chest press',
+    'preacher curl machine': 'Machine preacher curl',
+    'push up': 'Push-up',
+    'seated calf raise': 'Seated calf raise',
+    'seated leg curl': 'Seated leg curl',
+    'seated machine row': 'Machine row',
+    't bar row': 'T-bar row',
+    'thigh abductor': 'Hip abduction',
+    'thigh adductor': 'Hip adduction',
+    'triceps pushdown v bar': 'V-bar pushdown',
+    'weight plate reverse curl': 'Plate reverse curl',
+}
+
+
 REMOVED = {
     "Leg Press", "Lying Leg Curls", "Wide Grip Lat Pulldown", "Cable Seated Row", "Leg Extensions", "Leg Extension",
 }
@@ -85,13 +185,13 @@ class ExerciseMapping:
 
     @property
     def is_machine(self) -> bool:
-        return any(MACHINE_PATTERN.search(name) for name in self.jefit_names | {self.name})
+        return any(MACHINE_PATTERN.search(name) for name in self.jefit_names)
 
     @property
     def category(self) -> str:
         if self.is_machine:
             return "machine"
-        if any(BODYWEIGHT_PATTERN.search(name) for name in self.jefit_names | {self.name}):
+        if any(BODYWEIGHT_PATTERN.search(name) for name in self.jefit_names):
             return "bodyweight"
         return "free"
     entries: list[ImportedEntry] = field(default_factory=list)
@@ -110,8 +210,10 @@ def map_exercise(jefit_name: str) -> tuple[str, list[str]] | None:
     if jefit_name in COMPLEXES:
         return COMPLEXES[jefit_name]
     if DUMBBELL_CURL_PATTERN.search(jefit_name):
-        return "Dumbbell bicep curl", ["Dumbbell bicep curl"]
-    movement = MOVEMENT_NAMES.get(jefit_name, sentence_case(jefit_name))
+        movement = "Dumbbell bicep curl"
+    else:
+        movement = MOVEMENT_NAMES.get(jefit_name, sentence_case(jefit_name))
+    movement = CLEAN_NAMES.get(movement.lower(), movement)
     return movement, [movement]
 
 
