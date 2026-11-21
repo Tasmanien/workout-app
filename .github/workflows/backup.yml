@@ -1,0 +1,35 @@
+name: Backup D1
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Export database
+        run: npx -y wrangler@4 d1 export lift-log --remote --output "$RUNNER_TEMP/lift-log.sql"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Commit to the backups branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          mkdir "$RUNNER_TEMP/backups" && cd "$RUNNER_TEMP/backups"
+          git init -q
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git fetch -q origin backups; then git checkout -q -b backups FETCH_HEAD; else git checkout -q --orphan backups; fi
+          cp "$RUNNER_TEMP/lift-log.sql" lift-log.sql
+          git add lift-log.sql
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "chore(backup): $(date -u +%F)" || { echo "No change since last backup"; exit 0; }
+          git push -q origin backups
