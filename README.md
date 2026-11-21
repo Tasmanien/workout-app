@@ -8,7 +8,7 @@ Personal weightlifting records: 1RM / 3RM / 5x5… for single lifts and complexe
 - **Auth:** Cloudflare Access in front of the Worker; the Worker also verifies the Access JWT (`src/worker/auth.ts`).
 - **Backups:** D1 Time Travel (7 days) + nightly SQL dump committed to the `backups` branch (`.github/workflows/backup.yml`).
 
-Records only come from session types meant for it: a `max` session (nRM) counts its heaviest successful set with at least n reps, a `fixed` session (sets × reps) counts its lightest set when every set was completed. `free` sessions never produce a record. A result also counts for every smaller target it covers (a 3RM at 60 kg is a 1RM of at least 60 kg; a 5x5 covers 3x3, 5RM, 1RM…), never extrapolated upwards.
+Records only come from session types meant for it: a `max` session (nRM) counts its heaviest successful set with at least n reps, a `fixed` session (sets × reps) counts its lightest set when every set was completed. Hidden session types (e.g. 3x5, 4x5 from the JEFIT history) still count towards the visible ones but are not shown or offered when logging. A result also counts for every smaller target it covers (a 3RM at 60 kg is a 1RM of at least 60 kg; a 5x5 covers 3x3, 5RM, 1RM…), never extrapolated upwards.
 
 ## Run locally
 

@@ -8,6 +8,7 @@ export interface RecordScheme {
   kind: SchemeKind;
   sets: number | null;
   reps: number | null;
+  hidden?: boolean | number;
 }
 
 export interface ScoredEntry {
@@ -43,7 +44,8 @@ export function computeRecords(entries: ScoredEntry[], schemes: RecordScheme[]):
     .filter((result): result is { entry: ScoredEntry; weightKg: number } => result.weightKg !== null && result.weightKg > 0);
 
   const records: RecordValue[] = [];
-  for (const target of [...schemes].sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, undefined, { numeric: true }))) {
+  const targets = schemes.filter((scheme) => !scheme.hidden);
+  for (const target of targets.sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, undefined, { numeric: true }))) {
     let best: (typeof results)[number] | undefined;
     for (const result of results) {
       if (!schemeCovers(result.entry.scheme, target)) continue;

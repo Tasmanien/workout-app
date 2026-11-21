@@ -128,6 +128,10 @@ function ExercisesTab() {
 
   if (isPending) return <Loading />;
   const sorted = [...(exercises ?? [])].sort((a, b) => Number(a.archived) - Number(b.archived) || a.displayName.localeCompare(b.displayName));
+  const groups = [
+    { title: "Complexes", items: sorted.filter((exercise) => exercise.parts.length > 1) },
+    { title: "Lifts", items: sorted.filter((exercise) => exercise.parts.length <= 1) },
+  ];
 
   return (
     <>
@@ -137,21 +141,26 @@ function ExercisesTab() {
       ) : (
         <Button variant="primary" onClick={() => setEditingId("new")}>+ New exercise or complex</Button>
       )}
-      {sorted.map((exercise) =>
-        editingId === exercise.id ? (
-          <ExerciseEditor key={exercise.id} exercise={exercise} movements={movements ?? []} onDone={() => setEditingId(undefined)} />
-        ) : (
-          <button
-            key={exercise.id}
-            type="button"
-            onClick={() => setEditingId(exercise.id)}
-            className="flex items-center justify-between rounded-2xl bg-zinc-900 p-4 text-left active:bg-zinc-800"
-          >
-            <span className={exercise.archived ? "text-zinc-500" : ""}>{exercise.displayName}</span>
-            <span className="text-sm text-zinc-500">{exercise.archived ? "archived" : `${exercise.entryCount} sessions`}</span>
-          </button>
-        ),
-      )}
+      {groups.map((group) => group.items.length > 0 && (
+        <section key={group.title} className="flex flex-col gap-3">
+          <h2 className="mt-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">{group.title}</h2>
+          {group.items.map((exercise) =>
+            editingId === exercise.id ? (
+              <ExerciseEditor key={exercise.id} exercise={exercise} movements={movements ?? []} onDone={() => setEditingId(undefined)} />
+            ) : (
+              <button
+                key={exercise.id}
+                type="button"
+                onClick={() => setEditingId(exercise.id)}
+                className="flex items-center justify-between rounded-2xl bg-zinc-900 p-4 text-left active:bg-zinc-800"
+              >
+                <span className={exercise.archived ? "text-zinc-500" : ""}>{exercise.displayName}</span>
+                <span className="text-sm text-zinc-500">{exercise.archived ? "archived" : `${exercise.entryCount} sessions`}</span>
+              </button>
+            ),
+          )}
+        </section>
+      ))}
     </>
   );
 }
@@ -202,12 +211,14 @@ function MovementsTab() {
 }
 
 const KIND_LABELS: Record<SchemeKind, string> = { max: "Max (nRM)", fixed: "Sets × reps", free: "Free sets" };
+const EDITABLE_KINDS: SchemeKind[] = ["max", "fixed"];
 
 function SchemeEditor({ scheme, onDone }: { scheme?: Scheme; onDone: () => void }) {
   const [name, setName] = useState(scheme?.name ?? "");
   const [kind, setKind] = useState<SchemeKind>(scheme?.kind ?? "max");
   const [sets, setSets] = useState(scheme?.sets ? String(scheme.sets) : "");
   const [reps, setReps] = useState(scheme?.reps ? String(scheme.reps) : "");
+  const [hidden, setHidden] = useState(scheme?.hidden ?? false);
   const saveScheme = useSaveScheme();
   const deleteScheme = useDeleteScheme();
 
@@ -218,7 +229,7 @@ function SchemeEditor({ scheme, onDone }: { scheme?: Scheme; onDone: () => void 
   const save = async () => {
     await saveScheme.mutateAsync({
       id: scheme?.id,
-      input: { name: finalName, kind, sets: kind === "fixed" ? Number(sets) : null, reps: kind === "free" ? null : Number(reps) },
+      input: { name: finalName, kind, hidden, sets: kind === "fixed" ? Number(sets) : null, reps: kind === "free" ? null : Number(reps) },
     });
     onDone();
   };
@@ -227,7 +238,7 @@ function SchemeEditor({ scheme, onDone }: { scheme?: Scheme; onDone: () => void 
     <Card className="flex flex-col gap-3 border border-zinc-700">
       <Label title="Kind">
         <Select value={kind} onChange={(event) => setKind(event.target.value as SchemeKind)}>
-          {(Object.keys(KIND_LABELS) as SchemeKind[]).map((key) => <option key={key} value={key}>{KIND_LABELS[key]}</option>)}
+          {EDITABLE_KINDS.map((key) => <option key={key} value={key}>{KIND_LABELS[key]}</option>)}
         </Select>
       </Label>
       {kind !== "free" && (
@@ -241,6 +252,10 @@ function SchemeEditor({ scheme, onDone }: { scheme?: Scheme; onDone: () => void 
       <Label title="Name">
         <Input placeholder={suggestedName || "e.g. EMOM 10"} value={name} onChange={(event) => setName(event.target.value)} />
       </Label>
+      <label className="flex items-center gap-3 text-zinc-300">
+        <input type="checkbox" className="size-5 accent-amber-400" checked={hidden} onChange={(event) => setHidden(event.target.checked)} />
+        Hidden (no record shown, not offered when logging)
+      </label>
       <ErrorText error={saveScheme.error ?? deleteScheme.error} />
       <div className="grid grid-cols-2 gap-2">
         <Button onClick={onDone}>Cancel</Button>
@@ -276,8 +291,8 @@ function SchemesTab() {
             onClick={() => setEditingId(scheme.id)}
             className="flex items-center justify-between rounded-2xl bg-zinc-900 p-4 text-left active:bg-zinc-800"
           >
-            <span>{scheme.name}</span>
-            <span className="text-sm text-zinc-500">{KIND_LABELS[scheme.kind]} · {scheme.usage} sessions</span>
+            <span className={scheme.hidden ? "text-zinc-500" : ""}>{scheme.name}</span>
+            <span className="text-sm text-zinc-500">{scheme.hidden ? "hidden · " : ""}{KIND_LABELS[scheme.kind]} · {scheme.usage} sessions</span>
           </button>
         ),
       )}

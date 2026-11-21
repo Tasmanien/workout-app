@@ -49,7 +49,7 @@ async function loadExerciseSummaries(db: D1Database, exerciseId?: string): Promi
        ${filter ? `${filter} AND` : "WHERE"} sc.kind <> 'free'
        ORDER BY le.id, s.position`,
     )),
-    db.prepare("SELECT id, name, position, kind, sets, reps FROM scheme WHERE kind <> 'free'"),
+    db.prepare("SELECT id, name, position, kind, sets, reps, hidden FROM scheme WHERE kind <> 'free'"),
   ]);
   const recordSchemes = schemeRows.results as unknown as RecordScheme[];
   const schemeById = new Map(recordSchemes.map((scheme) => [scheme.id, scheme]));
@@ -209,17 +209,17 @@ app.delete("/exercises/:id", async (c) => {
 
 app.get("/schemes", async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT sc.id, sc.name, sc.kind, sc.sets, sc.reps, COUNT(le.id) AS usage
+    `SELECT sc.id, sc.name, sc.kind, sc.sets, sc.reps, sc.hidden, COUNT(le.id) AS usage
      FROM scheme sc LEFT JOIN log_entry le ON le.scheme_id = sc.id
      GROUP BY sc.id ORDER BY sc.position, sc.name COLLATE NOCASE`,
-  ).all<Scheme>();
-  return c.json(results);
+  ).all<Omit<Scheme, "hidden"> & { hidden: number }>();
+  return c.json(results.map((scheme) => ({ ...scheme, hidden: scheme.hidden === 1 })));
 });
 
 const SCHEME_POSITION = "CASE ?3 WHEN 'max' THEN ?5 WHEN 'fixed' THEN 10 * ?4 + ?5 ELSE 1000 END";
 
 function schemeValues(body: z.infer<typeof schemeInput>) {
-  return [body.name, body.kind, body.kind === "fixed" ? body.sets ?? null : null, body.kind === "free" ? null : body.reps ?? null] as const;
+  return [body.name, body.kind, body.kind === "fixed" ? body.sets ?? null : null, body.kind === "free" ? null : body.reps ?? null, body.hidden ? 1 : 0] as const;
 }
 
 app.post("/schemes", async (c) => {
@@ -227,7 +227,7 @@ app.post("/schemes", async (c) => {
   if (body instanceof Response) return body;
   const id = crypto.randomUUID();
   await c.env.DB.prepare(
-    `INSERT INTO scheme (id, name, kind, sets, reps, position) VALUES (?1, ?2, ?3, ?4, ?5, ${SCHEME_POSITION})`,
+    `INSERT INTO scheme (id, name, kind, sets, reps, hidden, position) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ${SCHEME_POSITION})`,
   ).bind(id, ...schemeValues(body)).run();
   return c.json({ id }, 201);
 });
@@ -235,7 +235,7 @@ app.post("/schemes", async (c) => {
 app.put("/schemes/:id", async (c) => {
   const body = await parseBody(c.req.raw, schemeInput);
   if (body instanceof Response) return body;
-  const { meta } = await c.env.DB.prepare(`UPDATE scheme SET name = ?2, kind = ?3, sets = ?4, reps = ?5, position = ${SCHEME_POSITION} WHERE id = ?1`)
+  const { meta } = await c.env.DB.prepare(`UPDATE scheme SET name = ?2, kind = ?3, sets = ?4, reps = ?5, hidden = ?6, position = ${SCHEME_POSITION} WHERE id = ?1`)
     .bind(c.req.param("id"), ...schemeValues(body)).run();
   return meta.changes ? c.body(null, 204) : c.json({ error: "Not found" }, 404);
 });

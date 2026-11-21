@@ -50,11 +50,16 @@ export function LogPage() {
     setLoadedEntryId(entry.id);
   }, [entry, loadedEntryId]);
 
+  const selectableSchemes = useMemo(
+    () => (schemes ?? []).filter((scheme) => (!scheme.hidden && scheme.kind !== "free") || scheme.id === schemeId),
+    [schemes, schemeId],
+  );
+
   useEffect(() => {
-    if (entryId || schemeId || !schemes?.length) return;
-    setSchemeId(schemes[0].id);
-    setRows(rowsForScheme(schemes[0]));
-  }, [entryId, schemeId, schemes]);
+    if (entryId || schemeId || !selectableSchemes.length) return;
+    setSchemeId(selectableSchemes[0].id);
+    setRows(rowsForScheme(selectableSchemes[0]));
+  }, [entryId, schemeId, selectableSchemes]);
 
   const selectableExercises = useMemo(
     () => (exercises ?? []).filter((exercise) => !exercise.archived || exercise.id === exerciseId).sort((a, b) => a.displayName.localeCompare(b.displayName)),
@@ -93,13 +98,22 @@ export function LogPage() {
         <Label title="Exercise">
           <Select value={exerciseId} onChange={(event) => setExerciseId(event.target.value)}>
             <option value="" disabled>Choose…</option>
-            {selectableExercises.map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.displayName}</option>)}
+            <optgroup label="Lifts">
+              {selectableExercises.filter((exercise) => exercise.parts.length <= 1).map((exercise) => (
+                <option key={exercise.id} value={exercise.id}>{exercise.displayName}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Complexes">
+              {selectableExercises.filter((exercise) => exercise.parts.length > 1).map((exercise) => (
+                <option key={exercise.id} value={exercise.id}>{exercise.displayName}</option>
+              ))}
+            </optgroup>
           </Select>
         </Label>
         <div className="grid grid-cols-2 gap-3">
           <Label title="Session type">
             <Select value={schemeId} onChange={(event) => changeScheme(event.target.value)}>
-              {schemes?.map((scheme) => <option key={scheme.id} value={scheme.id}>{scheme.name}</option>)}
+              {selectableSchemes.map((scheme) => <option key={scheme.id} value={scheme.id}>{scheme.name}</option>)}
             </Select>
           </Label>
           <Label title="Date">

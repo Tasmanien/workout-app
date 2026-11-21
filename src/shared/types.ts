@@ -37,6 +37,7 @@ export interface Scheme {
   kind: SchemeKind;
   sets: number | null;
   reps: number | null;
+  hidden: boolean;
   usage: number;
 }
 

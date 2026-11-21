@@ -24,6 +24,7 @@ export const schemeInput = z
     kind: schemeKind,
     sets: z.number().int().min(1).max(20).nullable().optional(),
     reps: z.number().int().min(1).max(50).nullable().optional(),
+    hidden: z.boolean().optional(),
   })
   .refine((scheme) => scheme.kind !== "fixed" || (scheme.sets && scheme.reps), {
     message: "A fixed scheme needs sets and reps",

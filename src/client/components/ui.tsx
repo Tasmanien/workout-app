@@ -17,7 +17,7 @@ export function Button({ variant = "secondary", className = "", ...props }: Butt
   );
 }
 
-const fieldStyles = "min-h-11 w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3 text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-accent";
+const fieldStyles = "block h-11 w-full min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 px-3 text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-accent";
 
 export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={`${fieldStyles} ${className}`} {...props} />;
@@ -29,7 +29,7 @@ export function Select({ className = "", ...props }: SelectHTMLAttributes<HTMLSe
 
 export function Label({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <label className="flex flex-col gap-1.5">
+    <label className="flex min-w-0 flex-col gap-1.5">
       <span className="text-sm text-zinc-400">{title}</span>
       {children}
     </label>
