@@ -86,6 +86,14 @@ class ExerciseMapping:
     @property
     def is_machine(self) -> bool:
         return any(MACHINE_PATTERN.search(name) for name in self.jefit_names | {self.name})
+
+    @property
+    def category(self) -> str:
+        if self.is_machine:
+            return "machine"
+        if any(BODYWEIGHT_PATTERN.search(name) for name in self.jefit_names | {self.name}):
+            return "bodyweight"
+        return "free"
     entries: list[ImportedEntry] = field(default_factory=list)
     technique: list[tuple[ImportedEntry, float]] = field(default_factory=list)
     dropped: int = 0
@@ -98,8 +106,6 @@ def sentence_case(name: str) -> str:
 
 def map_exercise(jefit_name: str) -> tuple[str, list[str]] | None:
     if jefit_name in REMOVED:
-        return None
-    if BODYWEIGHT_PATTERN.search(jefit_name) and "machine" not in jefit_name.lower():
         return None
     if jefit_name in COMPLEXES:
         return COMPLEXES[jefit_name]
@@ -193,6 +199,38 @@ def drop_technique_work(mapping: ExerciseMapping) -> None:
 excluded: set[str] = set()
 
 
+CATEGORY_TITLES = {"free": "Free weights", "machine": "Machines and cables", "bodyweight": "Bodyweight (weighted sets only)"}
+
+
+def read_keep_list(path: Path) -> set[str]:
+    names = set()
+    for line in path.read_text().splitlines():
+        match = re.match(r"^\s*-\s+(.+?)(\s+\(\d+ entr(y|ies)\))?\s*$", line)
+        if match:
+            names.add(match.group(1).strip().lower())
+    return names
+
+
+def apply_keep_list(mappings: dict[str, ExerciseMapping], keep: set[str]) -> None:
+    for name in list(mappings):
+        if name.lower() not in keep:
+            excluded.update(mappings.pop(name).jefit_names)
+
+
+def write_exercise_list(mappings: dict[str, ExerciseMapping], output: Path) -> None:
+    lines = [
+        "# JEFIT exercises to import",
+        "",
+        "Delete the lines of the exercises you don't want, then tell Claude. Names are the new ones; the count is the",
+        "number of entries each would bring. Exercises with nothing importable (bodyweight-only, high-rep only) are not listed.",
+    ]
+    for category, title in CATEGORY_TITLES.items():
+        group = sorted((m for m in mappings.values() if m.entries and m.category == category), key=lambda m: m.name.lower())
+        lines += ["", f"## {title} ({len(group)})", ""]
+        lines += [f"- {m.name} ({len(m.entries)} {'entry' if len(m.entries) == 1 else 'entries'})" for m in group]
+    output.write_text("\n".join(lines) + "\n")
+
+
 def build(path: Path) -> dict[str, ExerciseMapping]:
     sections = read_sections(path)
     notes = {(n["eid"], n["mydate"]): n["mynote"].strip() for n in sections["NOTES"] if n["mynote"].strip()}
@@ -281,10 +319,10 @@ def write_report(mappings: dict[str, ExerciseMapping], output: Path) -> None:
         "  - A session can give several entries; one already covered by a better entry of the same session is skipped",
         "    (a 5x5 at 90 makes a 3x5 at 90 or a 5RM at 90 redundant).",
         f"- Technique work is dropped: a session whose top weight is below {TECHNIQUE_RATIO:.0%} of the best already reached on that exercise.",
-        "- Bodyweight sets (0 kg), bodyweight exercises and cardio logs are dropped (list at the end).",
+        "- Bodyweight sets (0 kg) and cardio logs are dropped.",
         "- All dumbbell curl variants are merged into \"Dumbbell bicep curl\".",
         "- Several JEFIT names are merged into one exercise (see the mapping tables).",
-        "- Exercises you asked to remove are excluded (listed at the end with the bodyweight ones).",
+        "- Exercises you removed are excluded (listed at the end).",
         "- The same exercise logged several times on one day is merged into one session before applying the rules.",
         "",
         "## Totals",
@@ -401,10 +439,17 @@ def main() -> None:
     parser.add_argument("export", type=Path, help="JEFIT CSV export")
     parser.add_argument("--out", type=Path, required=True, help="Output directory (outside git)")
     parser.add_argument("--sql", action="store_true", help="Also write import.sql")
+    parser.add_argument("--keep", type=Path, help="Exercise list to import (as written by --list); others are excluded")
+    parser.add_argument("--list", action="store_true", help="Write exercises.md, the editable list of exercises to import")
     args = parser.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
     mappings = build(args.export)
+    if args.list:
+        write_exercise_list(mappings, args.out / "exercises.md")
+        print(f"Exercise list: {args.out / 'exercises.md'}")
+    if args.keep:
+        apply_keep_list(mappings, read_keep_list(args.keep))
     write_report(mappings, args.out / "jefit-import-review.md")
     print(f"Report: {args.out / 'jefit-import-review.md'}")
     if args.sql:
