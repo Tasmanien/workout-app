@@ -157,6 +157,10 @@ MANUAL_ENTRIES = [
     ("Clean + Jerk", "2026-11-20", "1RM", [(70.0, 1)], "Confirmed best clean & jerk"),
 ]
 
+SKIPPED_SESSIONS = {
+    ("Barbell Split Jerk", "2026-11-20"),
+}
+
 REMOVED = {
     "Leg Press", "Lying Leg Curls", "Wide Grip Lat Pulldown", "Cable Seated Row", "Leg Extensions", "Leg Extension",
 }
@@ -384,6 +388,9 @@ def build(path: Path) -> dict[str, ExerciseMapping]:
 
     for (name, date), logs in sessions.items():
         mapping = mappings[name]
+        logs = [log for log in logs if (log["ename"].strip(), date) not in SKIPPED_SESSIONS]
+        if not logs:
+            continue
         logs.sort(key=lambda log: int(log["_id"]))
         session_sets = [s for log in logs for s in parse_sets(log["logs"])]
         results = classify(session_sets)
