@@ -50,7 +50,7 @@ log_set           log_entry_id, position, reps, weight_kg, success
 - `success` lets you record a missed attempt (useful for max days).
 - Weights in kg, stored as decimals (0.5 kg plates).
 
-**Derived, not stored:** records, one per exercise and session type, and only from real efforts. A `max` session (nRM) counts its heaviest successful set with at least n reps; a `fixed` session (5x5) counts its lightest set when every set was completed; `free` sessions never count. A 10-rep working set is never a 10RM, and a 5x5 at 100 kg is a 5x5 record, not a 1RM.
+**Derived, not stored:** records, one per exercise and session type, and only from real efforts. A `max` session (nRM) counts its heaviest successful set with at least n reps; a `fixed` session (5x5) counts its lightest set when every set was completed; `free` sessions never count. A 10-rep working set is never a 10RM. A result also covers every smaller target, never extrapolated upwards: a 3RM at 60 kg means a 1RM of at least 60 kg, and a 5x5 at 100 kg also counts for 3x3, 5RM, 3RM and 1RM (shown as "via 5x5").
 
 ## 3. Screens (mobile-first, dark)
 
@@ -120,7 +120,7 @@ A native App Store app needs the Apple Developer Program (US$99/year). The PWA c
 No endpoint: a local script, run once, then kept in the repo for reference.
 
 1. Parse the JEFIT export (CSV) into sessions and sets, keeping each set's **original JEFIT date**.
-2. Ignore JEFIT's estimated maxes. Per session, keep only real efforts at the top weight: 3+ identical sets of 2–5 reps → `sets × reps` (5x5); otherwise the top set if ≤ 5 reps → nRM; anything above 5 reps is dropped. Exercise names are mapped/merged in `import.py`.
+2. Ignore JEFIT's estimated maxes. Per session, keep only real efforts at the top weight: 3+ identical sets of 2–5 reps → `sets × reps` (5x5); otherwise the top set if ≤ 5 reps → nRM; anything above 5 reps is dropped; technique work (top weight under 60 % of the best already reached) is dropped too. Exercise names are mapped/merged in `import.py`.
 3. Write a review report (`jefit-import-review.md`) listing every kept session; nothing is loaded before it is approved.
 4. Generate an idempotent SQL file (`INSERT … ON CONFLICT DO NOTHING`, entries tagged `source = 'jefit'`) and run it with `wrangler d1 execute --local` first, check the records page, then `--remote`.
 5. The raw export and the generated SQL stay **out of git** (personal data), under `/Users/renaud/Repositories/scripts/workout-app/jefit/`.

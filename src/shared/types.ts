@@ -17,6 +17,7 @@ export interface RecordValue {
   schemeName: string;
   weightKg: number;
   date: string;
+  fromSchemeName: string | null;
 }
 
 export interface ExerciseSummary {

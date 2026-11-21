@@ -53,17 +53,17 @@ function ProgressChart({ entries, schemes }: { entries: Entry[]; schemes: Scheme
     for (const entry of [...entries].reverse()) {
       const scheme = schemeById.get(entry.schemeId);
       if (!scheme) continue;
-      const weightKg = entryResultKg({
-        date: entry.date, schemeId: scheme.id, schemeName: scheme.name, schemePosition: 0,
-        kind: scheme.kind, targetSets: scheme.sets, targetReps: scheme.reps, sets: entry.sets,
-      });
+      const weightKg = entryResultKg({ date: entry.date, scheme: { ...scheme, position: 0 }, sets: entry.sets });
       if (weightKg === null || weightKg <= 0) continue;
       const points = bySchemeId.get(scheme.id) ?? [];
       points.push({ date: entry.date, weightKg });
       bySchemeId.set(scheme.id, points);
     }
-    return [...bySchemeId.entries()].filter(([, points]) => points.length >= 2);
-  }, [entries, schemeById]);
+    const schemeOrder = new Map(schemes.map((scheme, index) => [scheme.id, index]));
+    return [...bySchemeId.entries()]
+      .filter(([, points]) => points.length >= 2)
+      .sort(([a], [b]) => (schemeOrder.get(a) ?? 0) - (schemeOrder.get(b) ?? 0));
+  }, [entries, schemeById, schemes]);
   const [selectedId, setSelectedId] = useState<string>();
   const selected = series.find(([id]) => id === selectedId) ?? series[0];
   if (!selected) return null;
@@ -134,7 +134,10 @@ export function ExercisePage() {
           <ul className="divide-y divide-zinc-800">
             {exercise.records.map((record) => (
               <li key={record.schemeId} className="flex items-baseline justify-between py-2">
-                <span className="text-zinc-300">{record.schemeName}</span>
+                <span className="text-zinc-300">
+                  {record.schemeName}
+                  {record.fromSchemeName && <span className="text-xs text-zinc-500"> via {record.fromSchemeName}</span>}
+                </span>
                 <span>
                   <span className="text-lg font-semibold text-accent">{formatKg(record.weightKg)}</span>
                   <span className="text-sm text-zinc-500"> kg · {formatDate(record.date)}</span>

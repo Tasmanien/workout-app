@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { z } from "zod";
 import { requireAccess } from "./auth";
 import { entryInput, exerciseInput, movementInput, schemeInput } from "../shared/schemas";
-import { computeRecords, exerciseDisplayName, type ScoredEntry } from "../shared/records";
+import { computeRecords, exerciseDisplayName, type RecordScheme, type ScoredEntry } from "../shared/records";
 import type { Entry, ExerciseDetail, ExercisePart, ExerciseSummary, Movement, Scheme } from "../shared/types";
 
 const app = new Hono<{ Bindings: Env }>().basePath("/api");
@@ -26,15 +26,12 @@ async function parseBody<T extends z.ZodType>(request: Request, schema: T): Prom
 interface ExerciseRow { id: string; name: string | null; archived: number }
 interface PartRow { exercise_id: string; movement_id: string; movement_name: string; reps: number }
 interface StatsRow { exercise_id: string; entry_count: number; last_date: string }
-interface ScoredSetRow {
-  exercise_id: string; entry_id: string; date: string; scheme_id: string; scheme_name: string; scheme_position: number;
-  kind: ScoredEntry["kind"]; target_sets: number | null; target_reps: number | null; reps: number; weight_kg: number; success: number;
-}
+interface ScoredSetRow { exercise_id: string; entry_id: string; date: string; scheme_id: string; reps: number; weight_kg: number; success: number }
 
 async function loadExerciseSummaries(db: D1Database, exerciseId?: string): Promise<ExerciseSummary[]> {
   const filter = exerciseId ? "WHERE e.id = ?1" : "";
   const bind = (statement: D1PreparedStatement) => (exerciseId ? statement.bind(exerciseId) : statement);
-  const [exercises, parts, stats, scoredSets] = await db.batch([
+  const [exercises, parts, stats, scoredSets, schemeRows] = await db.batch([
     bind(db.prepare(`SELECT e.id, e.name, e.archived FROM exercise e ${filter}`)),
     bind(db.prepare(
       `SELECT ep.exercise_id, ep.movement_id, m.name AS movement_name, ep.reps
@@ -46,14 +43,16 @@ async function loadExerciseSummaries(db: D1Database, exerciseId?: string): Promi
        FROM log_entry le JOIN exercise e ON e.id = le.exercise_id ${filter} GROUP BY le.exercise_id`,
     )),
     bind(db.prepare(
-      `SELECT le.exercise_id, le.id AS entry_id, le.date, sc.id AS scheme_id, sc.name AS scheme_name, sc.position AS scheme_position,
-              sc.kind, sc.sets AS target_sets, sc.reps AS target_reps, s.reps, s.weight_kg, s.success
+      `SELECT le.exercise_id, le.id AS entry_id, le.date, le.scheme_id, s.reps, s.weight_kg, s.success
        FROM log_set s JOIN log_entry le ON le.id = s.log_entry_id JOIN scheme sc ON sc.id = le.scheme_id
        JOIN exercise e ON e.id = le.exercise_id
        ${filter ? `${filter} AND` : "WHERE"} sc.kind <> 'free'
        ORDER BY le.id, s.position`,
     )),
+    db.prepare("SELECT id, name, position, kind, sets, reps FROM scheme WHERE kind <> 'free'"),
   ]);
+  const recordSchemes = schemeRows.results as unknown as RecordScheme[];
+  const schemeById = new Map(recordSchemes.map((scheme) => [scheme.id, scheme]));
 
   const partsByExercise = new Map<string, ExercisePart[]>();
   for (const row of parts.results as unknown as PartRow[]) {
@@ -66,12 +65,11 @@ async function loadExerciseSummaries(db: D1Database, exerciseId?: string): Promi
   for (const row of scoredSets.results as unknown as ScoredSetRow[]) {
     const exerciseEntries = entriesByExercise.get(row.exercise_id) ?? new Map<string, ScoredEntry>();
     entriesByExercise.set(row.exercise_id, exerciseEntries);
+    const scheme = schemeById.get(row.scheme_id);
+    if (!scheme) continue;
     let entry = exerciseEntries.get(row.entry_id);
     if (!entry) {
-      entry = {
-        date: row.date, schemeId: row.scheme_id, schemeName: row.scheme_name, schemePosition: row.scheme_position,
-        kind: row.kind, targetSets: row.target_sets, targetReps: row.target_reps, sets: [],
-      };
+      entry = { date: row.date, scheme, sets: [] };
       exerciseEntries.set(row.entry_id, entry);
     }
     entry.sets.push({ reps: row.reps, weightKg: row.weight_kg, success: row.success === 1 });
@@ -88,7 +86,7 @@ async function loadExerciseSummaries(db: D1Database, exerciseId?: string): Promi
       parts: exerciseParts,
       entryCount: exerciseStats?.entry_count ?? 0,
       lastDate: exerciseStats?.last_date ?? null,
-      records: computeRecords([...(entriesByExercise.get(row.id)?.values() ?? [])]),
+      records: computeRecords([...(entriesByExercise.get(row.id)?.values() ?? [])], recordSchemes),
     };
   });
 }
@@ -218,6 +216,8 @@ app.get("/schemes", async (c) => {
   return c.json(results);
 });
 
+const SCHEME_POSITION = "CASE ?3 WHEN 'max' THEN ?5 WHEN 'fixed' THEN 10 * ?4 + ?5 ELSE 1000 END";
+
 function schemeValues(body: z.infer<typeof schemeInput>) {
   return [body.name, body.kind, body.kind === "fixed" ? body.sets ?? null : null, body.kind === "free" ? null : body.reps ?? null] as const;
 }
@@ -227,7 +227,7 @@ app.post("/schemes", async (c) => {
   if (body instanceof Response) return body;
   const id = crypto.randomUUID();
   await c.env.DB.prepare(
-    "INSERT INTO scheme (id, name, kind, sets, reps, position) VALUES (?1, ?2, ?3, ?4, ?5, (SELECT COALESCE(MAX(position), 0) + 1 FROM scheme WHERE position < 99))",
+    `INSERT INTO scheme (id, name, kind, sets, reps, position) VALUES (?1, ?2, ?3, ?4, ?5, ${SCHEME_POSITION})`,
   ).bind(id, ...schemeValues(body)).run();
   return c.json({ id }, 201);
 });
@@ -235,7 +235,7 @@ app.post("/schemes", async (c) => {
 app.put("/schemes/:id", async (c) => {
   const body = await parseBody(c.req.raw, schemeInput);
   if (body instanceof Response) return body;
-  const { meta } = await c.env.DB.prepare("UPDATE scheme SET name = ?2, kind = ?3, sets = ?4, reps = ?5 WHERE id = ?1")
+  const { meta } = await c.env.DB.prepare(`UPDATE scheme SET name = ?2, kind = ?3, sets = ?4, reps = ?5, position = ${SCHEME_POSITION} WHERE id = ?1`)
     .bind(c.req.param("id"), ...schemeValues(body)).run();
   return meta.changes ? c.body(null, 204) : c.json({ error: "Not found" }, 404);
 });

@@ -1,44 +1,68 @@
 import type { SchemeKind } from "./schemas";
 import type { ExercisePart, LoggedSet, RecordValue } from "./types";
 
+export interface RecordScheme {
+  id: string;
+  name: string;
+  position: number;
+  kind: SchemeKind;
+  sets: number | null;
+  reps: number | null;
+}
+
 export interface ScoredEntry {
   date: string;
-  schemeId: string;
-  schemeName: string;
-  schemePosition: number;
-  kind: SchemeKind;
-  targetSets: number | null;
-  targetReps: number | null;
+  scheme: RecordScheme;
   sets: LoggedSet[];
 }
 
 export function entryResultKg(entry: ScoredEntry): number | null {
+  const { scheme } = entry;
   const successful = entry.sets.filter((set) => set.success);
-  if (entry.kind === "max") {
-    const qualifying = successful.filter((set) => set.reps >= (entry.targetReps ?? 1));
+  if (scheme.kind === "max") {
+    const qualifying = successful.filter((set) => set.reps >= (scheme.reps ?? 1));
     return qualifying.length ? Math.max(...qualifying.map((set) => set.weightKg)) : null;
   }
-  if (entry.kind === "fixed") {
-    const completed = entry.sets.length >= (entry.targetSets ?? 1)
-      && entry.sets.every((set) => set.success && set.reps >= (entry.targetReps ?? 1));
+  if (scheme.kind === "fixed") {
+    const completed = entry.sets.length >= (scheme.sets ?? 1)
+      && entry.sets.every((set) => set.success && set.reps >= (scheme.reps ?? 1));
     return completed ? Math.min(...entry.sets.map((set) => set.weightKg)) : null;
   }
   return null;
 }
 
-export function computeRecords(entries: ScoredEntry[]): RecordValue[] {
-  const bestByScheme = new Map<string, RecordValue & { position: number }>();
-  for (const entry of entries) {
-    const weightKg = entryResultKg(entry);
-    if (weightKg === null || weightKg <= 0) continue;
-    const best = bestByScheme.get(entry.schemeId);
-    if (!best || weightKg > best.weightKg || (weightKg === best.weightKg && entry.date < best.date)) {
-      bestByScheme.set(entry.schemeId, { schemeId: entry.schemeId, schemeName: entry.schemeName, weightKg, date: entry.date, position: entry.schemePosition });
+export function schemeCovers(done: RecordScheme, target: RecordScheme): boolean {
+  if (done.kind === "free" || target.kind === "free") return false;
+  if (target.kind === "max") return (done.reps ?? 0) >= (target.reps ?? 1);
+  return done.kind === "fixed" && (done.sets ?? 0) >= (target.sets ?? 1) && (done.reps ?? 0) >= (target.reps ?? 1);
+}
+
+export function computeRecords(entries: ScoredEntry[], schemes: RecordScheme[]): RecordValue[] {
+  const results = entries
+    .map((entry) => ({ entry, weightKg: entryResultKg(entry) }))
+    .filter((result): result is { entry: ScoredEntry; weightKg: number } => result.weightKg !== null && result.weightKg > 0);
+
+  const records: RecordValue[] = [];
+  for (const target of [...schemes].sort((a, b) => a.position - b.position || a.name.localeCompare(b.name, undefined, { numeric: true }))) {
+    let best: (typeof results)[number] | undefined;
+    for (const result of results) {
+      if (!schemeCovers(result.entry.scheme, target)) continue;
+      const isHeavier = !best || result.weightKg > best.weightKg;
+      const isEarlierTie = best && result.weightKg === best.weightKg && result.entry.date < best.entry.date;
+      const isDirectTie = best && result.weightKg === best.weightKg && result.entry.date === best.entry.date && result.entry.scheme.id === target.id;
+      if (isHeavier || isEarlierTie || isDirectTie) best = result;
+    }
+    if (best) {
+      records.push({
+        schemeId: target.id,
+        schemeName: target.name,
+        weightKg: best.weightKg,
+        date: best.entry.date,
+        fromSchemeName: best.entry.scheme.id === target.id ? null : best.entry.scheme.name,
+      });
     }
   }
-  return [...bestByScheme.values()]
-    .sort((a, b) => a.position - b.position || a.schemeName.localeCompare(b.schemeName, undefined, { numeric: true }))
-    .map(({ position: _position, ...record }) => record);
+  return records;
 }
 
 export function exerciseDisplayName(name: string | null, parts: ExercisePart[]): string {

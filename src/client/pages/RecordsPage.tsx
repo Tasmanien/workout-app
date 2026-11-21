@@ -2,7 +2,16 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useExercises } from "../api";
 import { ErrorText, Input, Loading, PageHeader } from "../components/ui";
+import type { RecordValue } from "../../shared/types";
 import { formatDate, formatKg } from "../format";
+
+const HEADLINE_COUNT = 4;
+
+function headlineRecords(records: RecordValue[]): RecordValue[] {
+  const [first, ...rest] = records;
+  if (!first) return [];
+  return [first, ...rest.filter((record) => !record.fromSchemeName)].slice(0, HEADLINE_COUNT);
+}
 
 export function RecordsPage() {
   const { data: exercises, isPending, error } = useExercises();
@@ -35,7 +44,7 @@ export function RecordsPage() {
             </div>
             {exercise.records.length > 0 ? (
               <div className="mt-3 flex flex-wrap gap-2">
-                {exercise.records.slice(0, 4).map((record) => (
+                {headlineRecords(exercise.records).map((record) => (
                   <span key={record.schemeId} className="rounded-lg bg-zinc-800 px-2.5 py-1 text-sm">
                     <span className="text-zinc-400">{record.schemeName}</span>{" "}
                     <span className="font-semibold text-accent">{formatKg(record.weightKg)}</span>
