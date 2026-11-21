@@ -303,6 +303,18 @@ def drop_technique_work(mapping: ExerciseMapping) -> None:
 excluded: set[str] = set()
 
 
+BODY_PARTS = {
+    'Olympic lifts': ['Clean', 'Clean pull', 'Hang clean', 'Hang snatch', 'Overhead squat', 'Power clean', 'Power snatch', 'Push press', 'Snatch', 'Snatch pull', 'Split jerk'],
+    'Legs': ['Back squat', 'Barbell lunge', 'Deadlift', 'Dumbbell lunge', 'Dumbbell step-up', 'Front squat', 'Romanian deadlift', 'Standing calf raise'],
+    'Chest': ['Bench press', 'Close-grip bench press', 'Decline bench press', 'Dumbbell bench press', 'Dumbbell decline bench press', 'Dumbbell fly', 'Dumbbell incline bench press', 'Dumbbell incline fly', 'Incline bench press'],
+    'Back': ['Barbell row', 'Barbell shrug', 'Dumbbell shrug', 'One-arm dumbbell row', 'Weighted pull-up'],
+    'Shoulders': ['Dumbbell front raise', 'Dumbbell lateral raise', 'Dumbbell shoulder press', 'Strict press', 'Upright row'],
+    'Biceps': ['Barbell curl', 'Dumbbell bicep curl', 'EZ bar curl', 'Preacher curl'],
+    'Triceps': ['Dumbbell kickback', 'Dumbbell overhead triceps extension', 'Skull crusher'],
+}
+BODY_PART_BY_EXERCISE = {name: part for part, names in BODY_PARTS.items() for name in names}
+
+
 CATEGORY_TITLES = {"complex": "Complexes", "free": "Free weights", "machine": "Machines and cables", "bodyweight": "Bodyweight (weighted sets only)"}
 
 
@@ -328,8 +340,21 @@ def write_exercise_list(mappings: dict[str, ExerciseMapping], output: Path) -> N
         "Delete the lines of the exercises you don't want, then tell Claude. Names are the new ones; the count is the",
         "number of entries each would bring. Exercises with nothing importable (bodyweight-only, high-rep only) are not listed.",
     ]
-    for category, title in CATEGORY_TITLES.items():
-        group = sorted((m for m in mappings.values() if m.entries and m.category == category), key=lambda m: m.name.lower())
+    importable = [m for m in mappings.values() if m.entries]
+    groups: dict[str, list[ExerciseMapping]] = {}
+    for m in importable:
+        if m.category == "complex":
+            title = "Complexes"
+        elif m.category == "free":
+            title = BODY_PART_BY_EXERCISE.get(m.name, "Free weights, other")
+        else:
+            title = CATEGORY_TITLES[m.category]
+        groups.setdefault(title, []).append(m)
+    order = ["Complexes", *BODY_PARTS, "Free weights, other", *[t for c, t in CATEGORY_TITLES.items() if c not in ("complex", "free")]]
+    for title in order:
+        group = sorted(groups.get(title, []), key=lambda m: m.name.lower())
+        if not group:
+            continue
         lines += ["", f"## {title} ({len(group)})", ""]
         lines += [f"- {m.name} ({len(m.entries)} {'entry' if len(m.entries) == 1 else 'entries'})" for m in group]
     output.write_text("\n".join(lines) + "\n")
