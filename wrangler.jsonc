@@ -16,8 +16,8 @@
     }
   ],
   "vars": {
-    "ACCESS_TEAM_DOMAIN": "",
-    "ACCESS_AUD": ""
+    "ACCESS_TEAM_DOMAIN": "renaud-vandegar-d24.cloudflareaccess.com",
+    "ACCESS_AUD": "757663043ef1ca6d0a92ba815efbf428e1bf21564b9665b44478c693c3f03aaf"
   },
   "preview_urls": false,
   "observability": { "enabled": true }
