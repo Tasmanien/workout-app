@@ -144,6 +144,11 @@ def scheme_covers(done: str, target: str) -> bool:
     return done_kind == "fixed" and done_sets >= target_sets and done_reps >= target_reps
 
 
+def scheme_position(scheme: str) -> int:
+    kind, sets, reps = scheme_shape(scheme)
+    return reps if kind == "max" else 10 * sets + reps
+
+
 def scheme_order(scheme: str) -> tuple[int, int, int]:
     kind, sets, reps = scheme_shape(scheme)
     return (0 if kind == "max" else 1, reps, sets)
@@ -217,7 +222,11 @@ def compute_records(entries: list[ImportedEntry], schemes: list[str]) -> list[tu
             if not scheme_covers(entry.scheme, target):
                 continue
             weight = entry.sets[0][0] if scheme_shape(entry.scheme)[0] == "max" else min(w for w, _ in entry.sets)
-            if best is None or weight > best[0] or (weight == best[0] and entry.date < best[1].date):
+            same_day_tie = best is not None and weight == best[0] and entry.date == best[1].date
+            better_source = same_day_tie and best[1].scheme != target and (
+                entry.scheme == target or scheme_position(entry.scheme) < scheme_position(best[1].scheme)
+            )
+            if best is None or weight > best[0] or (weight == best[0] and entry.date < best[1].date) or better_source:
                 best = (weight, entry)
         if best:
             records.append((target, best[1]))

@@ -49,8 +49,10 @@ export function computeRecords(entries: ScoredEntry[], schemes: RecordScheme[]):
       if (!schemeCovers(result.entry.scheme, target)) continue;
       const isHeavier = !best || result.weightKg > best.weightKg;
       const isEarlierTie = best && result.weightKg === best.weightKg && result.entry.date < best.entry.date;
-      const isDirectTie = best && result.weightKg === best.weightKg && result.entry.date === best.entry.date && result.entry.scheme.id === target.id;
-      if (isHeavier || isEarlierTie || isDirectTie) best = result;
+      const isSameDayTie = best && result.weightKg === best.weightKg && result.entry.date === best.entry.date;
+      const isBetterSource = isSameDayTie && best!.entry.scheme.id !== target.id
+        && (result.entry.scheme.id === target.id || result.entry.scheme.position < best!.entry.scheme.position);
+      if (isHeavier || isEarlierTie || isBetterSource) best = result;
     }
     if (best) {
       records.push({
