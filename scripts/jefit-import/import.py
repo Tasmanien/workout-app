@@ -17,7 +17,7 @@ APP_SCHEMES = ["1RM", "2RM", "3RM", "5RM", "5x5", "3x3"]
 CARDIO_EXERCISE_IDS = {"317"}
 
 COMPLEXES = {
-    "Barbell Clean and Jerk": ("Clean & jerk", ["Clean", "Jerk"]),
+    "Barbell Clean and Jerk": ("Clean + Jerk", ["Clean", "Jerk"]),
 }
 
 MOVEMENT_NAMES = {
@@ -189,6 +189,8 @@ class ExerciseMapping:
 
     @property
     def category(self) -> str:
+        if len(self.movements) > 1:
+            return "complex"
         if self.is_machine:
             return "machine"
         if any(BODYWEIGHT_PATTERN.search(name) for name in self.jefit_names):
@@ -301,7 +303,7 @@ def drop_technique_work(mapping: ExerciseMapping) -> None:
 excluded: set[str] = set()
 
 
-CATEGORY_TITLES = {"free": "Free weights", "machine": "Machines and cables", "bodyweight": "Bodyweight (weighted sets only)"}
+CATEGORY_TITLES = {"complex": "Complexes", "free": "Free weights", "machine": "Machines and cables", "bodyweight": "Bodyweight (weighted sets only)"}
 
 
 def read_keep_list(path: Path) -> set[str]:
