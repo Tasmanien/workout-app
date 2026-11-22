@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS "d1_migrations"(
 );
 INSERT INTO "d1_migrations" ("id","name","applied_at") VALUES(1,'0001_init.sql','2026-11-21 08:30:56');
 INSERT INTO "d1_migrations" ("id","name","applied_at") VALUES(2,'0002_scheme_order.sql','2026-11-21 08:43:59');
+INSERT INTO "d1_migrations" ("id","name","applied_at") VALUES(3,'0003_scheme_hidden.sql','2026-11-21 09:35:12');
 CREATE TABLE movement (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -167,19 +168,18 @@ CREATE TABLE scheme (
   sets INTEGER,
   reps INTEGER,
   position INTEGER NOT NULL DEFAULT 0
-);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-1rm','1RM','max',NULL,1,1);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-2rm','2RM','max',NULL,2,2);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-3rm','3RM','max',NULL,3,3);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-5rm','5RM','max',NULL,5,5);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-5x5','5x5','fixed',5,5,55);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-3x3','3x3','fixed',3,3,33);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-free','Free sets','free',NULL,NULL,1000);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-3x5','3x5','fixed',3,5,35);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-4rm','4RM','max',NULL,4,4);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-4x3','4x3','fixed',4,3,43);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-4x5','4x5','fixed',4,5,45);
-INSERT INTO "scheme" ("id","name","kind","sets","reps","position") VALUES('scheme-5x3','5x3','fixed',5,3,53);
+, hidden INTEGER NOT NULL DEFAULT 0);
+INSERT INTO "scheme" ("id","name","kind","sets","reps","position","hidden") VALUES('scheme-1rm','1RM','max',NULL,1,1,0);
+INSERT INTO "scheme" ("id","name","kind","sets","reps","position","hidden") VALUES('scheme-2rm','2RM','max',NULL,2,2,0);
+INSERT INTO "scheme" ("id","name","kind","sets","reps","position","hidden") VALUES('scheme-3rm','3RM','max',NULL,3,3,0);
+INSERT INTO "scheme" ("id","name","kind","sets","reps","position","hidden") VALUES('scheme-5rm','5RM','max',NULL,5,5,0);
+INSERT INTO "scheme" ("id","name","kind","sets","reps","position","hidden") VALUES('scheme-5x5','5x5','fixed',5,5,55,0);
+INSERT INTO "scheme" ("id","name","kind","sets","reps","position","hidden") VALUES('scheme-3x3','3x3','fixed',3,3,33,0);
+INSERT INTO "scheme" ("id","name","kind","sets","reps","position","hidden") VALUES('scheme-3x5','3x5','fixed',3,5,35,1);
+INSERT INTO "scheme" ("id","name","kind","sets","reps","position","hidden") VALUES('scheme-4rm','4RM','max',NULL,4,4,0);
+INSERT INTO "scheme" ("id","name","kind","sets","reps","position","hidden") VALUES('scheme-4x3','4x3','fixed',4,3,43,1);
+INSERT INTO "scheme" ("id","name","kind","sets","reps","position","hidden") VALUES('scheme-4x5','4x5','fixed',4,5,45,1);
+INSERT INTO "scheme" ("id","name","kind","sets","reps","position","hidden") VALUES('scheme-5x3','5x3','fixed',5,3,53,1);
 CREATE TABLE log_entry (
   id TEXT PRIMARY KEY,
   exercise_id TEXT NOT NULL REFERENCES exercise(id),
@@ -1693,7 +1693,7 @@ INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source",
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100190-3rm','jefit-ex-power-clean','scheme-3rm','2026-09-25',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100190-5x3','jefit-ex-power-clean','scheme-5x3','2026-09-25',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100197-1rm','jefit-ex-power-clean','scheme-1rm','2026-10-09',NULL,'jefit','2026-11-21 09:21:27');
-INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100207-1rm','jefit-ex-power-clean','scheme-1rm','2026-11-20',NULL,'jefit','2026-11-21 09:21:27');
+INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100207-1rm','jefit-ex-clean','scheme-1rm','2026-11-20',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100152-4rm','jefit-ex-hang-clean','scheme-4rm','2026-07-07',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100176-2rm','jefit-ex-hang-clean','scheme-2rm','2026-08-04',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100154-5rm','jefit-ex-clean-pull','scheme-5rm','2026-07-07',NULL,'jefit','2026-11-21 09:21:27');
@@ -1703,9 +1703,9 @@ INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source",
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100158-4rm','jefit-ex-snatch-pull','scheme-4rm','2026-07-09',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100158-4x3','jefit-ex-snatch-pull','scheme-4x3','2026-07-09',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100159-5rm','jefit-ex-hang-snatch','scheme-5rm','2026-07-09',NULL,'jefit','2026-11-21 09:21:27');
-INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100160-2rm','jefit-ex-snatch','scheme-2rm','2026-07-09',NULL,'jefit','2026-11-21 09:21:27');
-INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100180-3rm','jefit-ex-snatch','scheme-3rm','2026-08-07',NULL,'jefit','2026-11-21 09:21:27');
-INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100198-2rm','jefit-ex-snatch','scheme-2rm','2026-10-10',NULL,'jefit','2026-11-21 09:21:27');
+INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100160-2rm','jefit-ex-power-snatch','scheme-2rm','2026-07-09',NULL,'jefit','2026-11-21 09:21:27');
+INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100180-3rm','jefit-ex-power-snatch','scheme-3rm','2026-08-07',NULL,'jefit','2026-11-21 09:21:27');
+INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100198-2rm','jefit-ex-power-snatch','scheme-2rm','2026-10-10',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100167-2rm','jefit-ex-push-press','scheme-2rm','2026-07-16',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100171-4rm','jefit-ex-push-press','scheme-4rm','2026-07-22',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100175-5rm','jefit-ex-push-press','scheme-5rm','2026-08-04',NULL,'jefit','2026-11-21 09:21:27');
@@ -1713,7 +1713,6 @@ INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source",
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100182-2rm','jefit-ex-push-press','scheme-2rm','2026-08-28',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100179-3rm','jefit-ex-overhead-squat','scheme-3rm','2026-08-07',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100208-3rm','jefit-ex-overhead-squat','scheme-3rm','2026-11-20',NULL,'jefit','2026-11-21 09:21:27');
-INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100209-1rm','jefit-ex-split-jerk','scheme-1rm','2026-11-20',NULL,'jefit','2026-11-21 09:21:27');
 CREATE TABLE log_set (
   id TEXT PRIMARY KEY,
   log_entry_id TEXT NOT NULL REFERENCES log_entry(id) ON DELETE CASCADE,
@@ -5880,9 +5879,8 @@ INSERT INTO "log_set" ("id","log_entry_id","position","reps","weight_kg","succes
 INSERT INTO "log_set" ("id","log_entry_id","position","reps","weight_kg","success") VALUES('jefit-100182-2rm-0','jefit-100182-2rm',0,2,75,1);
 INSERT INTO "log_set" ("id","log_entry_id","position","reps","weight_kg","success") VALUES('jefit-100179-3rm-0','jefit-100179-3rm',0,3,40,1);
 INSERT INTO "log_set" ("id","log_entry_id","position","reps","weight_kg","success") VALUES('jefit-100208-3rm-0','jefit-100208-3rm',0,3,50,1);
-INSERT INTO "log_set" ("id","log_entry_id","position","reps","weight_kg","success") VALUES('jefit-100209-1rm-0','jefit-100209-1rm',0,1,70,1);
 DELETE FROM sqlite_sequence;
-INSERT INTO "sqlite_sequence" ("name","seq") VALUES('d1_migrations',2);
+INSERT INTO "sqlite_sequence" ("name","seq") VALUES('d1_migrations',3);
 CREATE INDEX exercise_part_movement ON exercise_part(movement_id);
 CREATE INDEX log_entry_exercise_date ON log_entry(exercise_id, date);
 CREATE INDEX log_entry_scheme ON log_entry(scheme_id);
