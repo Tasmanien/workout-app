@@ -1,4 +1,8 @@
 import { NavLink, Route, Routes } from "react-router";
+import { BenchmarkEditorPage } from "./pages/BenchmarkEditorPage";
+import { BenchmarkPage } from "./pages/BenchmarkPage";
+import { BenchmarkResultPage } from "./pages/BenchmarkResultPage";
+import { BenchmarksPage } from "./pages/BenchmarksPage";
 import { ExercisePage } from "./pages/ExercisePage";
 import { LogPage } from "./pages/LogPage";
 import { ManagePage } from "./pages/ManagePage";
@@ -6,6 +10,7 @@ import { RecordsPage } from "./pages/RecordsPage";
 
 const tabs = [
   { to: "/", label: "Records", icon: "M4 20V10m6 10V4m6 16v-7m4 7H2" },
+  { to: "/benchmarks", label: "Benchmarks", icon: "M12 8v4l2.5 2.5M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM10 2h4" },
   { to: "/log", label: "Log", icon: "M12 5v14M5 12h14" },
   { to: "/manage", label: "Manage", icon: "M4 6h16M4 12h16M4 18h10" },
 ];
@@ -20,6 +25,12 @@ export function App() {
           <Route path="log" element={<LogPage />} />
           <Route path="log/:entryId" element={<LogPage />} />
           <Route path="manage" element={<ManagePage />} />
+          <Route path="benchmarks" element={<BenchmarksPage />} />
+          <Route path="benchmarks/new" element={<BenchmarkEditorPage />} />
+          <Route path="benchmarks/:benchmarkId" element={<BenchmarkPage />} />
+          <Route path="benchmarks/:benchmarkId/edit" element={<BenchmarkEditorPage />} />
+          <Route path="benchmarks/:benchmarkId/results/new" element={<BenchmarkResultPage />} />
+          <Route path="benchmarks/:benchmarkId/results/:resultId" element={<BenchmarkResultPage />} />
         </Routes>
       </main>
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-zinc-800 bg-zinc-950/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">

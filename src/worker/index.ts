@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import type { z } from "zod";
 import { requireAccess } from "./auth";
+import { benchmarks } from "./benchmarks";
+import { parseBody } from "./http";
 import { entryInput, exerciseInput, movementInput, schemeInput } from "../shared/schemas";
 import { computeRecords, exerciseDisplayName, type RecordScheme, type ScoredEntry } from "../shared/records";
 import type { Entry, ExerciseDetail, ExercisePart, ExerciseSummary, Movement, Scheme } from "../shared/types";
@@ -16,12 +18,6 @@ app.onError((error, c) => {
   console.error(error);
   return c.json({ error: "Internal error" }, 500);
 });
-
-async function parseBody<T extends z.ZodType>(request: Request, schema: T): Promise<z.infer<T> | Response> {
-  const parsed = schema.safeParse(await request.json().catch(() => null));
-  if (parsed.success) return parsed.data;
-  return Response.json({ error: parsed.error.issues.map((issue) => issue.message).join(", ") }, { status: 400 });
-}
 
 interface ExerciseRow { id: string; name: string | null; archived: number }
 interface PartRow { exercise_id: string; movement_id: string; movement_name: string; reps: number }
@@ -293,13 +289,18 @@ app.delete("/entries/:id", async (c) => {
 });
 
 app.get("/export", async (c) => {
-  const tables = ["movement", "exercise", "exercise_part", "scheme", "log_entry", "log_set"] as const;
+  const tables = [
+    "movement", "exercise", "exercise_part", "scheme", "log_entry", "log_set",
+    "benchmark", "benchmark_measure", "benchmark_result", "benchmark_value",
+  ] as const;
   const results = await c.env.DB.batch(tables.map((table) => c.env.DB.prepare(`SELECT * FROM ${table}`)));
   const dump = Object.fromEntries(tables.map((table, index) => [table, results[index].results]));
   return c.json({ exportedAt: new Date().toISOString(), ...dump }, 200, {
     "Content-Disposition": `attachment; filename="lift-log-${new Date().toISOString().slice(0, 10)}.json"`,
   });
 });
+
+app.route("/", benchmarks);
 
 app.all("*", (c) => c.json({ error: "Not found" }, 404));
 

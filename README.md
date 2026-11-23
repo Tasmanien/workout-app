@@ -1,6 +1,6 @@
 # Lift Log
 
-Personal weightlifting records: 1RM / 3RM / 5x5… for single lifts and complexes. Mobile-first PWA, dark theme.
+Personal weightlifting records (1RM / 3RM / 5x5… for single lifts and complexes) and benchmarks (mobility tests, reference WODs such as Murph or Hyrox sessions), with progression charts. Mobile-first PWA, dark theme.
 
 - **Frontend:** React + Vite + Tailwind (`src/client`), installable as a PWA.
 - **API:** Cloudflare Worker with Hono (`src/worker`), under `/api`.
@@ -9,6 +9,8 @@ Personal weightlifting records: 1RM / 3RM / 5x5… for single lifts and complexe
 - **Backups:** D1 Time Travel (7 days) + nightly SQL dump committed to the `backups` branch (`.github/workflows/backup.yml`).
 
 Records only come from session types meant for it: a `max` session (nRM) counts its heaviest successful set with at least n reps, a `fixed` session (sets × reps) counts its lightest set when every set was completed. Hidden session types (e.g. 3x5, 4x5 from the JEFIT history) still count towards the visible ones but are not shown or offered when logging. A result also counts for every smaller target it covers (a 3RM at 60 kg is a 1RM of at least 60 kg; a 5x5 covers 3x3, 5RM, 1RM…), never extrapolated upwards.
+
+Benchmarks have one or more measures, each with its own unit (time, rounds + reps, reps, cal, cm, °, kg, m) and direction (higher or lower is better): one "Time" for Murph, "Left"/"Right" for a sided mobility test, one per station for a multi-station WOD (a "Total" is added when all measures are reps or cal). Results can carry a version (Rx, Scaled, no vest…), and progress is charted per version.
 
 ## Run locally
 

@@ -61,3 +61,33 @@ export interface Entry {
 export interface ExerciseDetail extends ExerciseSummary {
   entries: Entry[];
 }
+
+export interface BenchmarkMeasure {
+  id: string;
+  name: string;
+  unit: import("./schemas").MeasureUnit;
+  better: import("./schemas").MeasureBetter;
+}
+
+export interface BenchmarkResult {
+  id: string;
+  date: string;
+  variant: string | null;
+  notes: string | null;
+  values: Record<string, number>;
+}
+
+export interface BenchmarkSummary {
+  id: string;
+  name: string;
+  category: string;
+  protocol: string | null;
+  archived: boolean;
+  measures: BenchmarkMeasure[];
+  resultCount: number;
+  lastResult: BenchmarkResult | null;
+}
+
+export interface BenchmarkDetail extends BenchmarkSummary {
+  results: BenchmarkResult[];
+}

@@ -53,3 +53,30 @@ export type SchemeInput = z.infer<typeof schemeInput>;
 export type SetInput = z.infer<typeof setInput>;
 export type EntryInput = z.infer<typeof entryInput>;
 export type SchemeKind = z.infer<typeof schemeKind>;
+
+export const measureUnit = z.enum(["time", "rounds_reps", "reps", "cal", "cm", "deg", "kg", "m"]);
+export const measureBetter = z.enum(["higher", "lower"]);
+
+export const benchmarkInput = z.object({
+  name: trimmedName,
+  category: z.string().trim().min(1).max(50),
+  protocol: z.string().trim().max(4000).nullable().optional(),
+  archived: z.boolean().optional(),
+  measures: z
+    .array(z.object({ id: z.string().min(1).optional(), name: z.string().trim().min(1).max(60), unit: measureUnit, better: measureBetter }))
+    .min(1)
+    .max(12),
+});
+
+export const benchmarkResultInput = z.object({
+  benchmarkId: id,
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  variant: z.string().trim().max(40).nullable().optional(),
+  notes: z.string().trim().max(1000).nullable().optional(),
+  values: z.array(z.object({ measureId: id, value: z.number().min(0).max(10_000_000) })).min(1).max(12),
+});
+
+export type MeasureUnit = z.infer<typeof measureUnit>;
+export type MeasureBetter = z.infer<typeof measureBetter>;
+export type BenchmarkInput = z.infer<typeof benchmarkInput>;
+export type BenchmarkResultInput = z.infer<typeof benchmarkResultInput>;
