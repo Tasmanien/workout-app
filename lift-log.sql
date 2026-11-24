@@ -5896,6 +5896,7 @@ CREATE TABLE benchmark (
 );
 INSERT INTO "benchmark" ("id","name","category","protocol","archived","created_at") VALUES('bm-murph','Murph','CrossFit',replace('For time:\n1 mile run\n100 pull-ups\n200 push-ups\n300 air squats\n1 mile run\nRx: 9 kg / 20 lb vest, reps can be partitioned.','\n',char(10)),0,'2026-11-23 08:20:40');
 INSERT INTO "benchmark" ("id","name","category","protocol","archived","created_at") VALUES('bm-hyrox-emom-6x5','Hyrox EMOM 6×5''','Hyrox',replace('Every 5 minutes, 6 rounds (30 min):\n400 m run, then max on the station until the 5 minutes are up.\nStations in order: row, sled push, SkiErg, burpee broad jumps, wall balls, sandbag lunges.\nPro weights.','\n',char(10)),0,'2026-11-23 08:20:40');
+INSERT INTO "benchmark" ("id","name","category","protocol","archived","created_at") VALUES('eda8454f-0898-44f7-a563-81d47825cde6','Ankle knee-to-wall','Mobility',NULL,0,'2026-11-23 18:08:25');
 CREATE TABLE benchmark_measure (
   id TEXT PRIMARY KEY,
   benchmark_id TEXT NOT NULL REFERENCES benchmark(id) ON DELETE CASCADE,
@@ -5911,6 +5912,8 @@ INSERT INTO "benchmark_measure" ("id","benchmark_id","position","name","unit","b
 INSERT INTO "benchmark_measure" ("id","benchmark_id","position","name","unit","better") VALUES('bm-hyrox-bbj','bm-hyrox-emom-6x5',3,'Burpee broad jumps','m','higher');
 INSERT INTO "benchmark_measure" ("id","benchmark_id","position","name","unit","better") VALUES('bm-hyrox-wb','bm-hyrox-emom-6x5',4,'Wall balls','reps','higher');
 INSERT INTO "benchmark_measure" ("id","benchmark_id","position","name","unit","better") VALUES('bm-hyrox-lunges','bm-hyrox-emom-6x5',5,'Lunges','m','higher');
+INSERT INTO "benchmark_measure" ("id","benchmark_id","position","name","unit","better") VALUES('86d81091-75fb-4b55-b176-a42ae8f5fd32','eda8454f-0898-44f7-a563-81d47825cde6',0,'Left','cm','higher');
+INSERT INTO "benchmark_measure" ("id","benchmark_id","position","name","unit","better") VALUES('e516be52-302e-4d2b-aa03-1e867009a07f','eda8454f-0898-44f7-a563-81d47825cde6',1,'Right','cm','higher');
 CREATE TABLE benchmark_result (
   id TEXT PRIMARY KEY,
   benchmark_id TEXT NOT NULL REFERENCES benchmark(id) ON DELETE CASCADE,
@@ -5921,6 +5924,7 @@ CREATE TABLE benchmark_result (
 );
 INSERT INTO "benchmark_result" ("id","benchmark_id","date","variant","notes","created_at") VALUES('bm-murph-2026-05-25','bm-murph','2026-05-25','No vest',NULL,'2026-11-23 08:20:40');
 INSERT INTO "benchmark_result" ("id","benchmark_id","date","variant","notes","created_at") VALUES('bm-hyrox-2026-11-12','bm-hyrox-emom-6x5','2026-11-12',NULL,NULL,'2026-11-23 08:37:20');
+INSERT INTO "benchmark_result" ("id","benchmark_id","date","variant","notes","created_at") VALUES('ffe9e5e4-f949-4c4e-8468-8c7b555e833a','eda8454f-0898-44f7-a563-81d47825cde6','2026-11-23',NULL,NULL,'2026-11-23 20:21:03');
 CREATE TABLE benchmark_value (
   result_id TEXT NOT NULL REFERENCES benchmark_result(id) ON DELETE CASCADE,
   measure_id TEXT NOT NULL REFERENCES benchmark_measure(id),
@@ -5934,6 +5938,8 @@ INSERT INTO "benchmark_value" ("result_id","measure_id","value") VALUES('bm-hyro
 INSERT INTO "benchmark_value" ("result_id","measure_id","value") VALUES('bm-hyrox-2026-11-12','bm-hyrox-bbj',40);
 INSERT INTO "benchmark_value" ("result_id","measure_id","value") VALUES('bm-hyrox-2026-11-12','bm-hyrox-wb',40);
 INSERT INTO "benchmark_value" ("result_id","measure_id","value") VALUES('bm-hyrox-2026-11-12','bm-hyrox-lunges',62);
+INSERT INTO "benchmark_value" ("result_id","measure_id","value") VALUES('ffe9e5e4-f949-4c4e-8468-8c7b555e833a','86d81091-75fb-4b55-b176-a42ae8f5fd32',10);
+INSERT INTO "benchmark_value" ("result_id","measure_id","value") VALUES('ffe9e5e4-f949-4c4e-8468-8c7b555e833a','e516be52-302e-4d2b-aa03-1e867009a07f',12.75);
 DELETE FROM sqlite_sequence;
 INSERT INTO "sqlite_sequence" ("name","seq") VALUES('d1_migrations',4);
 CREATE INDEX exercise_part_movement ON exercise_part(movement_id);
