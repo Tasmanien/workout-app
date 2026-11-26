@@ -1719,6 +1719,7 @@ INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source",
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100179-3rm','jefit-ex-overhead-squat','scheme-3rm','2026-08-07',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('jefit-100208-3rm','jefit-ex-overhead-squat','scheme-3rm','2026-11-20',NULL,'jefit','2026-11-21 09:21:27');
 INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('a0ff358b-dc0a-4d28-84b2-e899b8a57298','8faa83d6-eea4-4ebe-bcd5-d7d7e7051ed7','scheme-1rm','2026-11-22',NULL,'app','2026-11-22 20:14:00');
+INSERT INTO "log_entry" ("id","exercise_id","scheme_id","date","notes","source","created_at") VALUES('35d8fad0-03d7-4b35-9976-8aeba38c9da9','jefit-ex-back-squat','scheme-3rm','2026-11-25','With pause','app','2026-11-25 18:47:35');
 CREATE TABLE log_set (
   id TEXT PRIMARY KEY,
   log_entry_id TEXT NOT NULL REFERENCES log_entry(id) ON DELETE CASCADE,
@@ -5886,6 +5887,7 @@ INSERT INTO "log_set" ("id","log_entry_id","position","reps","weight_kg","succes
 INSERT INTO "log_set" ("id","log_entry_id","position","reps","weight_kg","success") VALUES('jefit-100179-3rm-0','jefit-100179-3rm',0,3,40,1);
 INSERT INTO "log_set" ("id","log_entry_id","position","reps","weight_kg","success") VALUES('jefit-100208-3rm-0','jefit-100208-3rm',0,3,50,1);
 INSERT INTO "log_set" ("id","log_entry_id","position","reps","weight_kg","success") VALUES('c1ec3c5b-67dd-4b27-b88b-f1b21c920bde','a0ff358b-dc0a-4d28-84b2-e899b8a57298',0,1,50,1);
+INSERT INTO "log_set" ("id","log_entry_id","position","reps","weight_kg","success") VALUES('4533d345-ceeb-4931-9b99-0114439ca476','35d8fad0-03d7-4b35-9976-8aeba38c9da9',0,3,100,1);
 CREATE TABLE benchmark (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
